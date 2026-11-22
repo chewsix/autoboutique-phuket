@@ -1,29 +1,23 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import confetti from 'canvas-confetti';
 import {
-  Calendar,
-  Search,
-  CheckCircle2,
+  Calendar as CalendarIcon,
   Clock,
-  User,
+  ShieldCheck,
+  CheckCircle2,
+  ChevronRight,
   Phone,
   Car,
-  ShieldCheck,
   AlertCircle,
   X,
-  ChevronRight,
-  ChevronLeft,
-  Camera,
-  Check,
-  Truck,
   Sparkles,
   ChevronDown,
   Trash2,
   Plus,
   Lock,
   Unlock,
-  MessageCircle,
   Star,
   Info,
   Gift,
@@ -42,21 +36,19 @@ import {
   DollarSign,
   BarChart3,
   Send,
-  Sliders,
   Upload,
   Copy,
   FileCheck,
   ShieldAlert,
   Award,
-  Compass,
   MapPin,
-  Flame,
   CheckSquare,
   BadgeCheck,
-  Timer,
-  Zap,
+  Users,
+  Search,
+  Filter,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+
 import {
   calculatePrice,
   getSlotAvailability,
@@ -84,9 +76,11 @@ import {
   BookingRecord,
   PackageDeal,
   CustomerPackage,
+  CalendarDay,
   ServiceType,
   Language,
 } from '@/utils/bookingLogic';
+
 import {
   isSupabaseConfigured,
   fetchRemoteBookings,
@@ -126,231 +120,168 @@ const INITIAL_BOOKINGS: BookingRecord[] = [
     subOptionId: 'standard',
     subOption: 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน',
     date: '2026-11-25',
-    status: 'pending',
-    createdAt: '2026-11-25T08:00:00Z',
+    status: 'step2',
+    createdAt: '2026-11-25T08:15:00Z',
     paidAmount: 500,
     paymentMethod: 'promptpay',
     paymentStatus: 'paid',
   },
   {
     id: 'BK-003',
-    timeSlot: '10:30',
-    customerName: 'คุณวิชัย รัตนการุณ',
-    phone: '081-345-6789',
-    carInfo: 'Porsche 911 GT3 (7กง 7777 ภูเก็ต)',
+    timeSlot: '13:00',
+    customerName: 'Mr. Alexander Vance',
+    phone: '091-234-5678',
+    carInfo: 'Porsche 911 Carrera (7กง 7777 ภูเก็ต)',
     serviceKey: 'wash',
     service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
     subOptionId: 'engine',
     subOption: '+ ล้างห้องเครื่องขจัดคราบน้ำมัน (+฿500)',
     date: '2026-11-25',
-    status: 'step2',
-    createdAt: '2026-11-25T08:30:00Z',
+    status: 'step1',
+    createdAt: '2026-11-25T09:30:00Z',
     paidAmount: 1000,
     paymentMethod: 'promptpay',
     paymentStatus: 'paid',
   },
   {
     id: 'BK-004',
-    timeSlot: '13:00',
-    customerName: 'คุณเอกภพ ว่องไว',
-    phone: '082-345-6789',
-    carInfo: 'Mercedes-Benz C350e (4กณ 5678 ภูเก็ต)',
+    timeSlot: '14:00',
+    customerName: 'คุณวิชัย รัตนการุณ',
+    phone: '081-345-6789',
+    carInfo: 'Mercedes-Benz G-Class (5กษ 9999 ภูเก็ต)',
     serviceKey: 'wash',
     service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
     subOptionId: 'standard',
-    subOption: 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน',
-    date: '2026-11-25',
-    status: 'ready',
-    createdAt: '2026-11-25T11:00:00Z',
-    paidAmount: 500,
-    paymentMethod: 'promptpay',
-    paymentStatus: 'paid',
-  },
-  {
-    id: 'BK-005',
-    timeSlot: '15:30',
-    customerName: 'คุณธีรเดช สุขสวัสดิ์',
-    phone: '086-999-7711',
-    carInfo: 'Ford Ranger Raptor (กง 7711 กระบี่)',
-    serviceKey: 'wash',
-    service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
-    subOptionId: 'standard',
-    subOption: 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน',
+    subOption: 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน (สิทธิ์แพ็คเกจ)',
     date: '2026-11-25',
     status: 'pending',
-    createdAt: '2026-11-25T14:30:00Z',
+    createdAt: '2026-11-25T11:00:00Z',
     paidAmount: 0,
     paymentMethod: 'package',
     paymentStatus: 'package_redeemed',
-    usedPackageId: 'CPKG-001',
+    usedPackageId: 'CPKG-002',
   },
 ];
 
-export default function Home() {
-  // Global View States
+export default function AutoboutiqueApp() {
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [view, setView] = useState<'booking' | 'packages' | 'tracker' | 'admin'>('booking');
   const [lang, setLang] = useState<Language>('th');
-  const [view, setView] = useState<'customer' | 'admin'>('customer');
-  const [customerTab, setCustomerTab] = useState<'booking' | 'packages' | 'vault'>('booking');
+  const isTh = lang === 'th';
 
-  // Brand Story Modal (from autoboutiqueth.com/#about)
-  const [aboutModalOpen, setAboutModalOpen] = useState(false);
+  // Booking Flow State
+  const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
+  const selectedService = SERVICE_SHOWCASE_DATA.wash;
+  const [selectedSubOption, setSelectedSubOption] = useState<string>('standard');
+  const [selectedDate, setSelectedDate] = useState<string>('2026-11-25');
+  const [bookingTimeSlot, setBookingTimeSlot] = useState<string>('09:30');
+  const [selectedWeekIdx, setSelectedWeekIdx] = useState<number>(0);
+  const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(0);
+  const [calendarViewMode, setCalendarViewMode] = useState<'week' | 'month'>('week');
 
-  // Customer Packages State
+  // Client & Vehicle Form State
+  const [formName, setFormName] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formCar, setFormCar] = useState('');
+  const [vipDelivery, setVipDelivery] = useState(false);
+  const [activeCarId, setActiveCarId] = useState<string>('BK-001');
+
+  // Studio Records & Persisted State
+  const [bookings, setBookings] = useState<BookingRecord[]>(INITIAL_BOOKINGS);
   const [customerPackages, setCustomerPackages] = useState<CustomerPackage[]>(INITIAL_CUSTOMER_PACKAGES);
-  const [selectedPackageIdToRedeem, setSelectedPackageIdToRedeem] = useState<string | null>(null);
+  const [lockedSlots, setLockedSlots] = useState<{ date: string; slot: string }[]>([]);
+  const [stampsCount, setStampsCount] = useState<number>(6);
 
-  // Enforced PromptPay QR Modal with Slip Verification
+  // PromptPay & Slip Verification Modal State
   const [promptPayModal, setPromptPayModal] = useState<{
     open: boolean;
     type: 'booking' | 'package';
     title: string;
     amount: number;
-    packageDraft?: PackageDeal;
-  }>({
-    open: false,
-    type: 'booking',
-    title: '',
-    amount: 0,
-  });
-
-  // PromptPay Countdown Timer (15 Minutes)
-  const [qrCountdown, setQrCountdown] = useState<number>(900); // 15 mins in secs
-
-  // Slip Upload State inside PromptPay Modal
+    pkgId?: string;
+  }>({ open: false, type: 'booking', title: '', amount: 0 });
   const [uploadedSlipPreview, setUploadedSlipPreview] = useState<string | null>(null);
-  const [isVerifyingSlip, setIsVerifyingSlip] = useState(false);
   const [slipVerified, setSlipVerified] = useState(false);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [promptPayCopied, setPromptPayCopied] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [slipChecking, setSlipChecking] = useState(false);
+  const [paymentCountdown, setPaymentCountdown] = useState<number>(900); // 15 mins (900s)
+  const [selectedPackageIdToRedeem, setSelectedPackageIdToRedeem] = useState<string | null>(null);
 
-  // Official Digital Booking Receipt Modal
-  const [bookingReceiptModal, setBookingReceiptModal] = useState<BookingRecord | null>(null);
-  const [receiptCopied, setReceiptCopied] = useState(false);
-
-  // LINE Notification Status Toast & Banner
-  const [lineNotificationSuccess, setLineNotificationSuccess] = useState<string | null>(null);
-
-  // Vehicle Search in Tab 3
-  const [vehicleSearchQuery, setVehicleSearchQuery] = useState('');
-
-  // Admin Active Sub-Tab, Filter & Date
+  // Executive Admin State
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
+  const [adminPinModalOpen, setAdminPinModalOpen] = useState<boolean>(false);
+  const [pinInput, setPinInput] = useState<string>('');
+  const [pinError, setPinError] = useState<boolean>(false);
   const [adminActiveTab, setAdminActiveTab] = useState<'dashboard' | 'bookings' | 'packages'>('dashboard');
   const [adminSelectedDate, setAdminSelectedDate] = useState<string>('2026-11-25');
-  const [adminBookingFilter, setAdminBookingFilter] = useState<'all' | 'pending' | 'inprogress' | 'ready'>('all');
-  const [adminNewPackageModalOpen, setAdminNewPackageModalOpen] = useState(false);
-  const [newPkgSelectedDealId, setNewPkgSelectedDealId] = useState('PKG-WASH-12');
-  const [newPkgCustomerName, setNewPkgCustomerName] = useState('');
-  const [newPkgPhone, setNewPkgPhone] = useState('');
-  const [newPkgCar, setNewPkgCar] = useState('');
+  const [adminBookingFilter, setAdminBookingFilter] = useState<'all' | 'pending' | 'inprogress' | 'ready' | 'cancelled'>('all');
+  const [adminSearchTerm, setAdminSearchTerm] = useState<string>('');
 
-  // Calendar State
-  const [currentWeekIndex, setCurrentWeekIndex] = useState<number>(0);
-  const [selectedDate, setSelectedDate] = useState<string>('2026-11-25');
-
-  // Customer Booking Form States (No Car Size!)
-  const [selectedSubOption, setSelectedSubOption] = useState<string>('standard');
-  const [bookingTimeSlot, setBookingTimeSlot] = useState('');
-  const [formName, setFormName] = useState('คุณอัครวัฒน์ ชัยกิตติคุณ');
-  const [formPhone, setFormPhone] = useState('089-999-8877');
-  const [formCar, setFormCar] = useState('BMW M2 (กข 8888 ภูเก็ต)');
-  const [vipDelivery, setVipDelivery] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // Full-Month Advance Calendar Modal State
-  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
-  const [calendarModalMonth, setCalendarModalMonth] = useState<{ year: number; month: number }>({
-    year: 2026,
-    month: 11,
-  });
-
-  // Calendar Integration Modal/Banner
-  const [lastConfirmedBooking, setLastConfirmedBooking] = useState<BookingRecord | null>(null);
-
-  // Service Showcase Modal (ดูตัวอย่างงาน)
-  const [showcaseModalOpen, setShowcaseModalOpen] = useState(false);
-
-  // Photo Lightbox Modal
-  const [lightboxData, setLightboxData] = useState<{
-    open: boolean;
-    title: string;
-    caption: string;
-    url: string;
-  }>({
-    open: false,
-    title: '',
-    caption: '',
-    url: '',
-  });
-
-  // Admin PIN Security State
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [adminPinModalOpen, setAdminPinModalOpen] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
-
-  // Admin Modals & State
-  const [cancelModalBooking, setCancelModalBooking] = useState<BookingRecord | null>(null);
+  // Modals & Inspection State
   const [walkInModalOpen, setWalkInModalOpen] = useState(false);
-  const [lockSlotModalOpen, setLockSlotModalOpen] = useState(false);
-  const [lockedSlots, setLockedSlots] = useState<string[]>([]);
-
-  // Walk-in Form State (No Car Size)
   const [walkInName, setWalkInName] = useState('');
   const [walkInPhone, setWalkInPhone] = useState('');
   const [walkInCar, setWalkInCar] = useState('');
-  const [walkInTime, setWalkInTime] = useState('08:30');
+  const [cancelModalBooking, setCancelModalBooking] = useState<BookingRecord | null>(null);
+  const [viewSlipModalUrl, setViewSlipModalUrl] = useState<string | null>(null);
+  const [lastConfirmedBooking, setLastConfirmedBooking] = useState<BookingRecord | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [lineNotificationSuccess, setLineNotificationSuccess] = useState<string | null>(null);
+  const [trackerSearchTerm, setTrackerSearchTerm] = useState<string>('');
 
-  // Shared Bookings State
-  const [bookings, setBookings] = useState<BookingRecord[]>(INITIAL_BOOKINGS);
-  const [activeCarId, setActiveCarId] = useState<string>('BK-001');
+  const slipFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Loyalty Stamp Card State (7/10 stamps default)
-  const [stampsCount, setStampsCount] = useState<number>(7);
-  const [isHydrated, setIsHydrated] = useState(false);
+  // Calculate pricing
+  const priceResult = useMemo(() => {
+    return calculatePrice('wash', selectedSubOption);
+  }, [selectedSubOption]);
 
-  // Dynamic or pre-configured active week derived from selectedDate
-  const activeWeek = useMemo(() => {
-    if (WEEKS_SCHEDULE[currentWeekIndex]?.dates.some((d) => d.dateStr === selectedDate)) {
-      return WEEKS_SCHEDULE[currentWeekIndex];
+  const currentPrice = priceResult.price;
+
+  // Active Week Schedule
+  const currentWeekSchedule = useMemo(() => {
+    if (selectedWeekIdx < WEEKS_SCHEDULE.length) {
+      return WEEKS_SCHEDULE[selectedWeekIdx];
     }
-    const fixedWeek = WEEKS_SCHEDULE.find((w) => w.dates.some((d) => d.dateStr === selectedDate));
-    if (fixedWeek) return fixedWeek;
     return getWeekScheduleForDate(selectedDate);
-  }, [selectedDate, currentWeekIndex]);
+  }, [selectedWeekIdx, selectedDate]);
 
-  // Global Keyboard Listener for Modal Escape Dismissal
+  // Active Month Days for Month Calendar
+  const currentMonthData = useMemo(() => {
+    return ADVANCE_MONTHS[selectedMonthIdx] || ADVANCE_MONTHS[0];
+  }, [selectedMonthIdx]);
+
+  const monthCalendarDays = useMemo(() => {
+    const { days, startOffset } = getCalendarDaysForMonth(currentMonthData.year, currentMonthData.month);
+    const blanks: (CalendarDay | null)[] = Array(startOffset).fill(null);
+    return [...blanks, ...days];
+  }, [currentMonthData]);
+
+  // 15-Minute Payment Countdown Timer
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (promptPayModal.open && paymentCountdown > 0) {
+      timer = setInterval(() => {
+        setPaymentCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [promptPayModal.open, paymentCountdown]);
+
+  // Global Escape Key Listener for Modals
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setPromptPayModal((prev) => ({ ...prev, open: false }));
-        setBookingReceiptModal(null);
-        setAdminPinModalOpen(false);
-        setCancelModalBooking(null);
-        setWalkInModalOpen(false);
-        setAdminNewPackageModalOpen(false);
-        setLockSlotModalOpen(false);
-        setLightboxData((prev) => ({ ...prev, open: false }));
-        setShowcaseModalOpen(false);
-        setCalendarModalOpen(false);
-        setAboutModalOpen(false);
+        if (promptPayModal.open) setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 });
+        if (adminPinModalOpen) setAdminPinModalOpen(false);
+        if (walkInModalOpen) setWalkInModalOpen(false);
+        if (cancelModalBooking) setCancelModalBooking(null);
+        if (viewSlipModalUrl) setViewSlipModalUrl(null);
+        if (lastConfirmedBooking) setLastConfirmedBooking(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // PromptPay Countdown Timer
-  useEffect(() => {
-    if (!promptPayModal.open) {
-      setQrCountdown(900);
-      return;
-    }
-    const interval = setInterval(() => {
-      setQrCountdown((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [promptPayModal.open]);
+  }, [promptPayModal.open, adminPinModalOpen, walkInModalOpen, cancelModalBooking, viewSlipModalUrl, lastConfirmedBooking]);
 
   // Load Persisted Data from LocalStorage on Mount
   useEffect(() => {
@@ -456,7 +387,7 @@ export default function Home() {
     try {
       localStorage.setItem('autoboutique_luxe_customer_packages', JSON.stringify(customerPackages));
     } catch (e) {
-      console.warn('Failed saving customer packages:', e);
+      console.warn('Failed saving packages:', e);
     }
   }, [customerPackages, isHydrated]);
 
@@ -470,30 +401,13 @@ export default function Home() {
     }
   }, [lockedSlots, isHydrated]);
 
-  // Language Change
-  const handleLangChange = (newLang: Language) => {
+  // Save Lang
+  const handleLanguageChange = (newLang: Language) => {
     setLang(newLang);
-    try {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('autoboutique_luxe_lang', newLang);
-    } catch (e) {}
+    }
   };
-
-  const isTh = lang === 'th';
-  const isRu = lang === 'ru';
-
-  // Tracking car
-  const currentTrackingCar =
-    bookings.find((b) => b.id === activeCarId) || bookings[0] || INITIAL_BOOKINGS[0];
-  const trackerStage = mapStatusToStage(currentTrackingCar.status);
-
-  // Price calculation: Flat ฿500 Base Rate + Optional Add-on
-  const currentPriceObj = calculatePrice('wash', selectedSubOption);
-  const currentPrice = currentPriceObj.price;
-
-  // Selected active package for ฿0 redemption
-  const activeRedeemPackage = customerPackages.find(
-    (p) => p.id === selectedPackageIdToRedeem && p.status === 'active' && p.remainingQuota > 0
-  );
 
   // Send LINE Flex Notification via API
   const sendLineNotification = async (payload: {
@@ -520,7 +434,9 @@ export default function Home() {
       const data = await res.json();
       if (data.success) {
         setLineNotificationSuccess(
-          `📱 ข้อความ LINE แจ้งเตือนส่งถึง ${payload.customerName} (${payload.carInfo}) สำเร็จแล้ว!`
+          isTh
+            ? `📱 ข้อความ LINE แจ้งเตือนส่งถึง ${payload.customerName} สำเร็จแล้ว!`
+            : `LINE notification sent to ${payload.customerName} successfully.`
         );
         setTimeout(() => setLineNotificationSuccess(null), 6000);
       }
@@ -530,57 +446,34 @@ export default function Home() {
   };
 
   // Process Slip File (Validation & Preview)
-  const processSlipFile = (file: File) => {
+  const handleProcessSlipFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      setToastMessage(isTh ? 'กรุณาอัปโหลดไฟล์รูปภาพสลิปเท่านั้น' : 'Please upload an image file');
-      setTimeout(() => setToastMessage(null), 3000);
+      alert(isTh ? 'กรุณาอัปโหลดไฟล์รูปภาพสลิปเท่านั้น (JPEG, PNG)' : 'Please upload an image file (JPEG, PNG)');
       return;
     }
-    setIsVerifyingSlip(true);
+    if (file.size > 8 * 1024 * 1024) {
+      alert(isTh ? 'ขนาดไฟล์รูปภาพเกิน 8MB กรุณาเลือกไฟล์ใหม่' : 'File exceeds 8MB. Please select a smaller image.');
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setUploadedSlipPreview(result);
+      setSlipChecking(true);
       setTimeout(() => {
-        setUploadedSlipPreview(reader.result as string);
-        setIsVerifyingSlip(false);
+        setSlipChecking(false);
         setSlipVerified(true);
-      }, 1200);
-    };
-    reader.onerror = () => {
-      setIsVerifyingSlip(false);
-      setToastMessage(isTh ? 'เกิดข้อผิดพลาดในการอ่านไฟล์สลิป' : 'Failed to read slip image');
+      }, 700);
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSlipFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processSlipFile(file);
-  };
-
-  // Drag and Drop Slip Handlers
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) processSlipFile(file);
-  };
-
-  // Simulate Slip Upload for Testing
-  const handleSimulateSlipUpload = () => {
-    setIsVerifyingSlip(true);
-    setTimeout(() => {
-      setUploadedSlipPreview('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80');
-      setIsVerifyingSlip(false);
-      setSlipVerified(true);
-    }, 1000);
+  // Open Payment Modal
+  const handleOpenPromptPayModal = (type: 'booking' | 'package', title: string, amount: number, pkgId?: string) => {
+    setPromptPayModal({ open: true, type, title, amount, pkgId });
+    setUploadedSlipPreview(null);
+    setSlipVerified(false);
+    setPaymentCountdown(900); // 15:00
   };
 
   // Confirm booking & payment
@@ -594,7 +487,7 @@ export default function Home() {
     const newRecord: BookingRecord = {
       id: newBookingId,
       timeSlot: bookingTimeSlot,
-      customerName: formName.trim() || 'คุณลูกค้า',
+      customerName: formName.trim() || 'คุณลูกค้า VIP',
       phone: formPhone.trim() || '089-999-8877',
       carInfo: formCar.trim() || 'Mercedes-Benz (กข 8888 ภูเก็ต)',
       serviceKey: 'wash',
@@ -682,56 +575,61 @@ export default function Home() {
 
     setToastMessage(
       isTh
-        ? `✅ จองคิวล้างรถสำเร็จ! รหัส ${newBookingId} ส่งข้อความยืนยันทาง LINE เรียบร้อย`
-        : `Booking Confirmed #${newBookingId}! LINE alert sent.`
+        ? `✅ บันทึกนัดหมายสำเร็จ! รหัส ${newBookingId} ส่งการแจ้งเตือนยืนยันเรียบร้อย`
+        : `Appointment Confirmed #${newBookingId}! Notification dispatched.`
     );
     setTimeout(() => setToastMessage(null), 5000);
   };
 
-  // Buy Package with PromptPay
-  const handleCompletePackagePayment = (deal: PackageDeal) => {
-    const newPkgId = `CPKG-${String(customerPackages.length + 1).padStart(3, '0')}`;
-    const today = new Date();
-    const expiry = new Date(today);
-    expiry.setDate(today.getDate() + deal.validityDays);
+  // Handle Purchasing New Package Pass
+  const handleCompletePackagePurchase = (pkgId: string) => {
+    const pkgDeal = OFFICIAL_PACKAGES.find((p) => p.id === pkgId);
+    if (!pkgDeal) return;
 
-    const newCustomerPkg: CustomerPackage = {
-      id: newPkgId,
-      packageId: deal.id,
-      serviceKey: deal.serviceKey,
-      packageNameTh: deal.nameTh,
-      packageNameEn: deal.nameEn,
-      customerName: formName.trim() || 'คุณลูกค้าคนพิเศษ',
+    const newCustPkg: CustomerPackage = {
+      id: `CPKG-${String(customerPackages.length + 1).padStart(3, '0')}`,
+      packageId: pkgDeal.id,
+      serviceKey: 'wash',
+      packageNameTh: pkgDeal.nameTh,
+      packageNameEn: pkgDeal.nameEn,
+      customerName: formName.trim() || 'คุณลูกค้า VIP',
       phone: formPhone.trim() || '089-999-8877',
-      carInfo: formCar.trim() || 'BMW M2 Coupe (กข 8888 ภูเก็ต)',
-      totalQuota: deal.totalUses,
-      remainingQuota: deal.totalUses,
-      purchaseDate: today.toISOString().split('T')[0],
-      expiryDate: expiry.toISOString().split('T')[0],
+      carInfo: formCar.trim() || 'รถยนต์สมาชิก (ภูเก็ต)',
+      totalQuota: pkgDeal.totalUses,
+      remainingQuota: pkgDeal.totalUses,
+      purchaseDate: new Date().toISOString().split('T')[0],
+      expiryDate: new Date(Date.now() + pkgDeal.validityDays * 86400000).toISOString().split('T')[0],
       status: 'active',
-      pricePaid: deal.price,
+      pricePaid: pkgDeal.price,
     };
 
-    setCustomerPackages((prev) => [newCustomerPkg, ...prev]);
+    setCustomerPackages((prev) => [newCustPkg, ...prev]);
     setPromptPayModal({ open: false, type: 'package', title: '', amount: 0 });
     setUploadedSlipPreview(null);
     setSlipVerified(false);
 
+    upsertRemotePackage({
+      id: newCustPkg.id,
+      customerPhone: newCustPkg.phone,
+      customerName: newCustPkg.customerName,
+      packageName: newCustPkg.packageNameTh,
+      totalQuota: newCustPkg.totalQuota,
+      usedQuota: 0,
+      price: newCustPkg.pricePaid,
+      status: 'active',
+      purchasedDate: newCustPkg.purchaseDate,
+    });
+
     try {
-      confetti({
-        particleCount: 110,
-        spread: 80,
-        origin: { y: 0.5 },
-        colors: ['#2563EB', '#3B82F6', '#60A5FA', '#FFFFFF'],
-      });
+      confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
     } catch (e) {}
 
     setToastMessage(
       isTh
-        ? `🎉 ซื้อ ${deal.nameTh} สำเร็จแล้ว! โควตา ${deal.totalUses} ครั้ง พร้อมใช้งานทันที`
-        : `Package purchased successfully! ${deal.totalUses} uses available.`
+        ? `🎉 เปิดใช้งานแพ็คเกจ ${pkgDeal.nameTh} สำเร็จ! ได้รับโควตา ${pkgDeal.totalUses} ครั้งเรียบร้อย`
+        : `Package ${pkgDeal.nameEn} activated successfully!`
     );
-    setTimeout(() => setToastMessage(null), 4000);
+    setTimeout(() => setToastMessage(null), 5000);
   };
 
   // Admin PIN Auth
@@ -791,18 +689,15 @@ export default function Home() {
   const handleCreateWalkIn = () => {
     if (!walkInName.trim() || !walkInCar.trim()) {
       setToastMessage(isTh ? 'กรุณากรอกชื่อและทะเบียนรถ' : 'Please fill all fields');
-      setTimeout(() => setToastMessage(null), 2500);
       return;
     }
     const newId = `BK-${String(bookings.length + 1).padStart(3, '0')}`;
-    const priceResult = calculatePrice('wash', 'standard');
-
     const newRecord: BookingRecord = {
       id: newId,
-      timeSlot: walkInTime,
+      timeSlot: '09:30',
       customerName: walkInName.trim(),
-      phone: formatPhoneInput(walkInPhone) || '089-000-0000',
-      carInfo: walkInCar.trim().toUpperCase(),
+      phone: walkInPhone.trim() || '089-999-8877',
+      carInfo: walkInCar.trim(),
       serviceKey: 'wash',
       service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
       subOptionId: 'standard',
@@ -827,7 +722,7 @@ export default function Home() {
       timeSlot: newRecord.timeSlot,
       totalPrice: newRecord.paidAmount,
       paymentMethod: newRecord.paymentMethod,
-      status: 'washing',
+      status: 'step1',
     });
     setWalkInModalOpen(false);
     setWalkInName('');
@@ -849,10 +744,10 @@ export default function Home() {
       setCustomerPackages((prev) =>
         prev.map((p) => {
           if (p.id === cancelModalBooking.usedPackageId) {
-            const nextQuota = Math.min(p.totalQuota, p.remainingQuota + 1);
+            const refunded = Math.min(p.totalQuota, p.remainingQuota + 1);
             return {
               ...p,
-              remainingQuota: nextQuota,
+              remainingQuota: refunded,
               status: 'active',
             };
           }
@@ -904,1773 +799,1321 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  // Admin Issue New Package Manually
-  const handleAdminIssueNewPackage = () => {
-    if (!newPkgCustomerName.trim() || !newPkgCar.trim()) {
-      setToastMessage(isTh ? 'กรุณากรอกชื่อและข้อมูลรถ' : 'Please fill customer and car info');
-      setTimeout(() => setToastMessage(null), 2500);
-      return;
+  // Admin Toggle Slot Lock
+  const handleToggleLockSlot = (date: string, slot: string) => {
+    const isLocked = lockedSlots.some((l) => l.date === date && l.slot === slot);
+    if (isLocked) {
+      setLockedSlots((prev) => prev.filter((l) => !(l.date === date && l.slot === slot)));
+      setToastMessage(isTh ? `ปลดล็อคช่องบริการ ${slot} เรียบร้อย` : `Unlocked slot ${slot}`);
+    } else {
+      setLockedSlots((prev) => [...prev, { date, slot }]);
+      setToastMessage(isTh ? `ล็อคช่องบริการ ${slot} เรียบร้อย` : `Locked slot ${slot}`);
     }
-    const deal = OFFICIAL_PACKAGES.find((d) => d.id === newPkgSelectedDealId) || OFFICIAL_PACKAGES[0];
-    const newId = `CPKG-${String(customerPackages.length + 1).padStart(3, '0')}`;
-    const today = new Date();
-    const expiry = new Date(today);
-    expiry.setDate(today.getDate() + deal.validityDays);
-
-    const newPkg: CustomerPackage = {
-      id: newId,
-      packageId: deal.id,
-      serviceKey: 'wash',
-      packageNameTh: deal.nameTh,
-      packageNameEn: deal.nameEn,
-      customerName: newPkgCustomerName.trim(),
-      phone: formatPhoneInput(newPkgPhone) || '089-000-0000',
-      carInfo: newPkgCar.trim().toUpperCase(),
-      totalQuota: deal.totalUses,
-      remainingQuota: deal.totalUses,
-      purchaseDate: today.toISOString().split('T')[0],
-      expiryDate: expiry.toISOString().split('T')[0],
-      status: 'active',
-      pricePaid: deal.price,
-    };
-
-    setCustomerPackages((prev) => [newPkg, ...prev]);
-    setAdminNewPackageModalOpen(false);
-    setNewPkgCustomerName('');
-    setNewPkgPhone('');
-    setNewPkgCar('');
-    setToastMessage(isTh ? `✅ ออกแพ็คเกจ ${newId} ให้ลูกค้าเรียบร้อย` : 'New package issued');
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 2500);
   };
 
-  // Admin Daily Calculations (แดชบอร์ดรายวัน)
-  const dailyBookings = useMemo(() => {
-    return bookings.filter((b) => b.date === adminSelectedDate);
+  // Admin Daily Financial Metrics
+  const adminMetrics = useMemo(() => {
+    const daysBookings = bookings.filter((b) => b.date === adminSelectedDate);
+    const activeDaysBookings = daysBookings.filter((b) => b.status !== 'cancelled');
+    const revenue = activeDaysBookings.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
+    const completed = activeDaysBookings.filter((b) => b.status === 'ready').length;
+    const inProgress = activeDaysBookings.filter((b) => ['step1', 'step2', 'step3', 'step4'].includes(b.status)).length;
+    const pending = activeDaysBookings.filter((b) => b.status === 'pending').length;
+    const totalSlots = TIME_SLOTS.length * 2; // 2 bays
+    const capacityPct = Math.min(100, Math.round((activeDaysBookings.length / totalSlots) * 100));
+
+    return {
+      revenue,
+      completed,
+      inProgress,
+      pending,
+      totalCount: activeDaysBookings.length,
+      capacityPct,
+    };
   }, [bookings, adminSelectedDate]);
 
-  const filteredAdminBookings = useMemo(() => {
-    if (adminBookingFilter === 'all') return dailyBookings;
-    if (adminBookingFilter === 'pending') {
-      return dailyBookings.filter((b) => b.status === 'pending' || b.status === 'step1');
-    }
-    if (adminBookingFilter === 'inprogress') {
-      return dailyBookings.filter((b) => ['step2', 'step3', 'step4'].includes(b.status));
-    }
-    if (adminBookingFilter === 'ready') {
-      return dailyBookings.filter((b) => b.status === 'ready');
-    }
-    return dailyBookings;
-  }, [dailyBookings, adminBookingFilter]);
-
-  const dailyRevenue = useMemo(() => {
-    return dailyBookings.reduce((sum, b) => {
-      if (b.paymentStatus === 'paid' && b.paidAmount) return sum + b.paidAmount;
-      return sum;
-    }, 0);
-  }, [dailyBookings]);
-
-  const dailyPackageRedemptions = useMemo(() => {
-    return dailyBookings.filter((b) => b.paymentMethod === 'package').length;
-  }, [dailyBookings]);
-
-  const dailyPendingCount = useMemo(() => {
-    return dailyBookings.filter((b) => b.status === 'pending' || b.status === 'step1').length;
-  }, [dailyBookings]);
-
-  const dailyInProgressCount = useMemo(() => {
-    return dailyBookings.filter(
-      (b) => b.status === 'step2' || b.status === 'step3' || b.status === 'step4'
-    ).length;
-  }, [dailyBookings]);
-
-  const dailyReadyCount = useMemo(() => {
-    return dailyBookings.filter((b) => b.status === 'ready').length;
-  }, [dailyBookings]);
-
-  // Search filtered vehicles in Customer Tab 3
-  const matchingVehicles = useMemo(() => {
-    if (!vehicleSearchQuery.trim()) return bookings;
-    const q = vehicleSearchQuery.toLowerCase().trim();
-    const cleanNumbers = q.replace(/[^0-9]/g, '');
-    return bookings.filter(
-      (b) =>
+  // Admin Filtered Bookings
+  const adminFilteredBookings = useMemo(() => {
+    return bookings.filter((b) => {
+      if (b.date !== adminSelectedDate) return false;
+      if (adminBookingFilter === 'pending') return b.status === 'pending';
+      if (adminBookingFilter === 'inprogress') return ['step1', 'step2', 'step3', 'step4'].includes(b.status);
+      if (adminBookingFilter === 'ready') return b.status === 'ready';
+      if (adminBookingFilter === 'cancelled') return b.status === 'cancelled';
+      return true;
+    }).filter((b) => {
+      if (!adminSearchTerm.trim()) return true;
+      const q = adminSearchTerm.toLowerCase().trim();
+      const cleanNums = q.replace(/[^0-9]/g, '');
+      return (
         b.carInfo.toLowerCase().includes(q) ||
-        b.id.toLowerCase().includes(q) ||
         b.customerName.toLowerCase().includes(q) ||
-        (cleanNumbers.length >= 3 && b.phone.replace(/[^0-9]/g, '').includes(cleanNumbers))
-    );
-  }, [bookings, vehicleSearchQuery]);
+        b.id.toLowerCase().includes(q) ||
+        (cleanNums.length >= 3 && b.phone.replace(/[^0-9]/g, '').includes(cleanNums))
+      );
+    });
+  }, [bookings, adminSelectedDate, adminBookingFilter, adminSearchTerm]);
 
-  const warranty = getWarrantyInfo('wash', selectedSubOption, isTh);
-  const currentShowcase = SERVICE_SHOWCASE_DATA.wash;
+  // Active Vehicle in Live Tracker
+  const activeCarRecord = useMemo(() => {
+    if (trackerSearchTerm.trim()) {
+      const q = trackerSearchTerm.toLowerCase().trim();
+      const cleanNums = q.replace(/[^0-9]/g, '');
+      const matched = bookings.find(
+        (b) =>
+          b.carInfo.toLowerCase().includes(q) ||
+          b.id.toLowerCase().includes(q) ||
+          b.customerName.toLowerCase().includes(q) ||
+          (cleanNums.length >= 3 && b.phone.replace(/[^0-9]/g, '').includes(cleanNums))
+      );
+      if (matched) return matched;
+    }
+    return bookings.find((b) => b.id === activeCarId) || bookings[0];
+  }, [bookings, activeCarId, trackerSearchTerm]);
+
+  const activeStageNumber = activeCarRecord ? mapStatusToStage(activeCarRecord.status) : 1;
+  const activeStageInfo = getStageDetails(activeStageNumber, isTh);
+  const estimatedCompletionTime = activeCarRecord ? getEstimatedCompletion(activeCarRecord.timeSlot) : '10:30';
 
   // Format countdown mm:ss
-  const formatCountdown = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
+  const formatTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-[#080C14] flex items-center justify-center text-white font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs tracking-widest text-blue-400 uppercase font-semibold">Autoboutique Phuket • Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#060913] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(37,99,235,0.18),rgba(255,255,255,0))] text-slate-100 flex justify-center items-start pb-20 selection:bg-blue-600 selection:text-white font-sans antialiased">
-      <div className="w-full max-w-md md:my-6 md:rounded-3xl md:border md:border-blue-500/20 md:shadow-[0_0_50px_rgba(37,99,235,0.15)] md:overflow-hidden bg-[#0A0F1D] flex flex-col min-h-screen md:min-h-[92vh] relative shadow-2xl border-x border-slate-900 transition-all duration-300">
+    <div className="min-h-screen bg-[#080C14] text-slate-100 flex flex-col items-center ambient-cobalt-glow selection:bg-blue-600 selection:text-white">
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div className="fixed top-5 z-50 px-5 py-3 rounded-full bg-slate-900/95 border border-blue-500/40 text-blue-100 text-xs md:text-sm font-medium shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2.5">
+          <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* LINE Notification Banner */}
+      {lineNotificationSuccess && (
+        <div className="fixed top-16 z-50 px-5 py-3 rounded-full bg-emerald-950/95 border border-emerald-500/40 text-emerald-200 text-xs md:text-sm font-medium shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2.5">
+          <BadgeCheck className="w-4 h-4 text-emerald-400" />
+          <span>{lineNotificationSuccess}</span>
+        </div>
+      )}
+
+      {/* Main Container - Dual Ergonomics for Mobile and Desktop Centered */}
+      <div className="w-full max-w-4xl mx-auto flex flex-col min-h-screen border-x border-slate-900/80 bg-[#080C14]/90 backdrop-blur-md">
         
-        {/* ==================== LUXURY BLUE STUDIO HEADER ==================== */}
-        <header className="sticky top-0 z-40 bg-[#060913]/95 backdrop-blur-md border-b border-blue-500/20 px-4 py-2.5 flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setCustomerTab('booking')}
-              className="flex items-center gap-2 group text-left transition active:scale-98"
-            >
-              <div className="h-9 w-auto flex items-center">
-                <img
-                  src="/logo.png"
-                  alt="Autoboutique"
-                  className="h-8 md:h-9 w-auto object-contain brightness-110 drop-shadow-[0_2px_12px_rgba(37,99,235,0.4)] transition group-hover:scale-105"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+        {/* =========================================================================
+            EXECUTIVE BRAND HEADER
+            ========================================================================= */}
+        <header className="border-b border-slate-800/80 bg-[#0B0F19]/90 sticky top-0 z-40 backdrop-blur-md px-4 py-3.5 md:px-6">
+          <div className="flex items-center justify-between gap-3">
+            {/* Brand Logo & Heritage */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-900 flex items-center justify-center shadow-lg shadow-blue-900/40 border border-blue-400/30">
+                <ShieldCheck className="w-5 h-5 text-white" />
               </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-sm tracking-wider text-white">
-                    AUTOBOUTIQUE
-                  </span>
-                  <span className="text-[9px] bg-blue-600/20 text-blue-300 font-bold px-1.5 py-0.2 rounded border border-blue-500/40">
-                    PHUKET
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base md:text-lg font-bold tracking-tight text-white uppercase font-sans">
+                    Autoboutique <span className="text-blue-500 font-light">Phuket</span>
+                  </h1>
+                  <span className="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-950/80 border border-blue-500/30 text-blue-300 uppercase tracking-wider">
+                    C-Cube Automotive
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium tracking-tight">
-                  Operated by C-Cube Automotive (Est. 2008)
-                </span>
+                <p className="text-[11px] text-slate-400 font-normal">
+                  {isTh ? 'สตูดิโอดักฝุ่น & ล้างรถระดับพรีเมียม (Est. 2008)' : 'Luxury Automotive Detailing Studio (Est. 2008)'}
+                </p>
               </div>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {/* Brand Story Button (autoboutiqueth.com/#about) */}
-            <button
-              type="button"
-              onClick={() => setAboutModalOpen(true)}
-              className="text-[11px] font-bold text-blue-300 bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm active:scale-95"
-              title="About Autoboutique Story"
-            >
-              <Sparkles className="w-3 h-3 text-blue-400" />
-              <span className="hidden sm:inline">About</span>
-            </button>
-
-            {/* Language Switcher */}
-            <div className="bg-[#0F172A] border border-slate-800 rounded-lg p-0.5 flex text-[10px] font-bold">
-              <button
-                type="button"
-                onClick={() => handleLangChange('th')}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  lang === 'th' ? 'bg-blue-600 text-white shadow-sm font-extrabold' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                TH
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLangChange('en')}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  lang === 'en' ? 'bg-blue-600 text-white shadow-sm font-extrabold' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLangChange('ru')}
-                className={`px-1.5 py-0.5 rounded transition ${
-                  lang === 'ru' ? 'bg-blue-600 text-white shadow-sm font-extrabold' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                RU
-              </button>
             </div>
 
-            {/* Admin Switcher (Protected by PIN) */}
+            {/* Top Right: Hours, Hotline, Language */}
+            <div className="flex items-center gap-2 md:gap-3">
+              <a
+                href="tel:0966369933"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 hover:text-white hover:border-slate-700 text-xs transition"
+              >
+                <Phone className="w-3.5 h-3.5 text-blue-400" />
+                <span className="font-medium">096 636 9933</span>
+              </a>
+
+              {/* Language Selector */}
+              <div className="flex items-center bg-slate-900/80 p-0.5 rounded-lg border border-slate-800 text-xs">
+                {(['th', 'en', 'ru'] as Language[]).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => handleLanguageChange(l)}
+                    className={`px-2 py-1 rounded-md font-medium text-[11px] uppercase transition ${
+                      lang === l
+                        ? 'bg-blue-600 text-white shadow-sm font-semibold'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Operating Status Strip */}
+          <div className="mt-3 pt-2.5 border-t border-slate-900/80 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-slate-300 font-medium">
+                {isTh ? 'สตูดิโอเปิดบริการ: จันทร์ - เสาร์ (08:30 - 17:30 น.)' : 'Studio Hours: Mon - Sat (08:30 - 17:30)'}
+              </span>
+            </div>
+            <span className="hidden sm:inline text-slate-500">
+              {isTh ? '📍 ถนนเฉลิมพระเกียรติ ร.9 (บายพาส) ภูเก็ต' : 'Phuket Bypass Road'}
+            </span>
+          </div>
+
+          {/* =========================================================================
+              EXECUTIVE SEGMENTED NAVIGATION BAR
+              ========================================================================= */}
+          <nav className="mt-3 grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800/80">
             <button
-              type="button"
+              onClick={() => setView('booking')}
+              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition ${
+                view === 'booking'
+                  ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-900/30 font-semibold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
+              }`}
+            >
+              <CalendarIcon className="w-3.5 h-3.5" />
+              <span className="truncate">{isTh ? 'นัดหมายบริการ' : 'Appointment'}</span>
+            </button>
+
+            <button
+              onClick={() => setView('packages')}
+              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition ${
+                view === 'packages'
+                  ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-900/30 font-semibold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
+              }`}
+            >
+              <Ticket className="w-3.5 h-3.5" />
+              <span className="truncate">{isTh ? 'แพ็คเกจเหมาจ่าย' : 'Passes'}</span>
+            </button>
+
+            <button
+              onClick={() => setView('tracker')}
+              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition ${
+                view === 'tracker'
+                  ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-900/30 font-semibold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span className="truncate">{isTh ? 'ติดตามสถานะ' : 'Live Tracker'}</span>
+            </button>
+
+            <button
               onClick={() => {
-                if (view === 'admin') {
-                  setView('customer');
-                } else if (isAdminAuthenticated) {
+                if (isAdminAuthenticated) {
                   setView('admin');
                 } else {
                   setAdminPinModalOpen(true);
                 }
               }}
-              className={`p-1.5 rounded-lg border transition active:scale-95 ${
+              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition ${
                 view === 'admin'
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-300'
-                  : 'bg-[#0F172A] border-slate-800 text-slate-400 hover:text-blue-400'
+                  ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-900/30 font-semibold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
               }`}
-              title="Admin Portal"
             >
-              {view === 'admin' ? <Unlock className="w-4 h-4 text-blue-400" /> : <Lock className="w-4 h-4" />}
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span className="truncate">{isTh ? 'ผู้ดูแลระบบ' : 'Admin'}</span>
             </button>
-          </div>
+          </nav>
         </header>
 
-        {/* Global Toast Alert */}
-        {toastMessage && (
-          <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-sm bg-gradient-to-r from-slate-900 via-[#0F172A] to-blue-950 text-white text-xs font-semibold py-2.5 px-4 rounded-xl shadow-2xl border border-blue-500/40 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span>{toastMessage}</span>
-            </span>
-            <button type="button" onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white ml-2">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* LINE Notification Banner */}
-        {lineNotificationSuccess && (
-          <div className="bg-emerald-950/90 border-b border-emerald-600/40 px-4 py-2 text-xs text-emerald-300 flex items-center justify-between animate-in fade-in duration-200">
-            <span className="flex items-center gap-1.5 font-medium">
-              <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{lineNotificationSuccess}</span>
-            </span>
-            <button onClick={() => setLineNotificationSuccess(null)} className="text-emerald-400 hover:text-emerald-200">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* Calendar Integration Banner (Appears after successful booking) */}
-        {lastConfirmedBooking && (
-          <div className="bg-gradient-to-r from-[#0F172A] via-[#060913] to-[#0F172A] border-b border-blue-500/30 p-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-white">
-                  {isTh ? 'จองสำเร็จ! นัดหมายบันทึกแล้ว' : 'Booking Confirmed!'}
-                </p>
-                <p className="text-[11px] text-blue-300/80">
-                  {lastConfirmedBooking.date} • {lastConfirmedBooking.timeSlot} น.
-                </p>
+        {/* =========================================================================
+            TAB 1: APPOINTMENT CONCIERGE (นัดหมายบริการ)
+            ========================================================================= */}
+        {view === 'booking' && (
+          <main className="p-4 md:p-6 space-y-6 flex-1">
+            {/* Step Indicator Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+              <div className="autoboutique-title-bar">
+                <span className="text-[11px] font-semibold tracking-wider text-blue-400 uppercase">
+                  CONCIERGE BOOKING
+                </span>
+                <h2 className="text-lg md:text-xl font-bold text-white tracking-tight">
+                  {isTh ? 'นัดหมายเข้ารับบริการล้างสี & ดีเทลลิ่ง' : 'Reserve Studio Detailing Appointment'}
+                </h2>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-400 font-medium">
+                <span className="text-blue-400 font-bold">1</span>
+                <span>/</span>
+                <span>3</span>
+                <span className="hidden sm:inline text-slate-500 ml-1">{isTh ? 'ขั้นตอน' : 'Steps'}</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setBookingReceiptModal(lastConfirmedBooking)}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-lg transition flex items-center gap-1 shadow-sm active:scale-95"
-              >
-                <Receipt className="w-3 h-3" />
-                <span>{isTh ? 'ใบเสร็จ' : 'Receipt'}</span>
-              </button>
-              <a
-                href={generateGoogleCalendarUrl(lastConfirmedBooking)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-[#060913] hover:bg-slate-800 border border-slate-700 text-slate-300 text-[11px] font-medium px-2 py-1 rounded-lg transition"
-                title="Google Calendar"
-              >
-                +Calendar
-              </a>
-            </div>
-          </div>
-        )}
 
-        {/* ==================== VIEW 1: ADMIN BACKEND (หลังบ้านแอดมิน) ==================== */}
-        {view === 'admin' ? (
-          <div className="flex-1 p-4 space-y-4">
-            {/* Admin Header Banner */}
-            <div className="bg-gradient-to-br from-[#0F172A] via-[#0A0F1D] to-slate-900 border border-blue-500/30 rounded-2xl p-4 shadow-xl relative overflow-hidden">
-              <div className="flex items-center justify-between">
+            {/* STEP 1: SERVICE HERO & STUDIO ADD-ONS */}
+            <section className="luxe-panel rounded-2xl p-4 md:p-6 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
                 <div>
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-blue-300 bg-blue-950/80 border border-blue-500/30 px-2.5 py-0.5 rounded-full">
-                    Executive Studio Portal
-                  </span>
-                  <h2 className="text-base font-bold mt-1.5 text-white flex items-center gap-1.5">
-                    <ShieldCheck className="w-5 h-5 text-blue-400" />
-                    <span>{isTh ? 'ระบบบริหารจัดการสตูดิโอ' : 'Studio Management'}</span>
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white uppercase tracking-wider">
+                      STUDIO BASE
+                    </span>
+                    <h3 className="text-base md:text-lg font-bold text-white">
+                      {isTh ? selectedService.titleTh : selectedService.titleEn}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                    {isTh
+                      ? 'บริการล้างสี ดูดฝุ่น พ่นโฟม pH 7 ทำความสะอาดซุ้มล้อและคราบน้ำมัน ปลอดภัยต่อสีและฟิล์ม PPF ทุกชนิด'
+                      : 'Comprehensive pH 7 active foam wash, wheel barrel detailing, and interior microfiber sanitization.'}
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setView('customer')}
-                  className="bg-[#060913] hover:bg-slate-800 text-blue-300 border border-blue-500/30 text-xs px-2.5 py-1.5 rounded-lg transition font-medium active:scale-95"
-                >
-                  {isTh ? '➔ หน้าร้าน' : '➔ Front Store'}
-                </button>
+                <div className="text-left sm:text-right shrink-0">
+                  <div className="text-2xl md:text-3xl font-extrabold text-blue-400 font-sans tracking-tight">
+                    ฿{currentPrice.toLocaleString()}
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    {isTh ? 'ราคาเดียวมาตรฐาน (ไม่แบ่งขนาดรถ)' : 'Flat Rate (No Car Size Matrix)'}
+                  </p>
+                </div>
               </div>
 
-              {/* Sub-Tab Navigation */}
-              <div className="grid grid-cols-3 gap-1 mt-4 bg-[#060913] p-1 rounded-xl border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setAdminActiveTab('dashboard')}
-                  className={`py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
-                    adminActiveTab === 'dashboard'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md font-extrabold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  <span>{isTh ? 'เดชบอร์ดรายวัน' : 'Daily Stats'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdminActiveTab('bookings')}
-                  className={`py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
-                    adminActiveTab === 'bookings'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md font-extrabold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>{isTh ? 'คิวนัดหมาย' : 'Bookings'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdminActiveTab('packages')}
-                  className={`py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
-                    adminActiveTab === 'packages'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md font-extrabold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Ticket className="w-3.5 h-3.5" />
-                  <span>{isTh ? 'แพ็คเกจลูกค้า' : 'Packages'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Date Selector & Search for Admin View */}
-            <div className="bg-[#0F172A] border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2">
-              <span className="text-xs text-slate-400 font-medium whitespace-nowrap">
-                {isTh ? 'เลือกวันที่ดูข้อมูล:' : 'Select Date:'}
-              </span>
-              <input
-                type="date"
-                value={adminSelectedDate}
-                onChange={(e) => setAdminSelectedDate(e.target.value)}
-                className="bg-[#060913] border border-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg outline-none focus:border-blue-500"
-              />
-            </div>
-
-            {/* ADMIN SUB-TAB 1: DAILY DASHBOARD (เดชบอร์ดรายวัน) */}
-            {adminActiveTab === 'dashboard' && (
-              <div className="space-y-4">
-                {/* 4 Essential Daily Metric Cards */}
-                <div className="grid grid-cols-2 gap-2.5">
-                  {/* Today's Cash/QR Revenue */}
-                  <div className="bg-[#0F172A] border border-slate-800 p-3.5 rounded-2xl relative overflow-hidden">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2">
-                      <DollarSign className="w-4 h-4" />
-                    </div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-                      {isTh ? 'รายรับวันนี้ (โอน/สด)' : "Today's Revenue"}
-                    </span>
-                    <p className="text-xl font-black text-white mt-0.5">
-                      ฿{dailyRevenue.toLocaleString()}
-                    </p>
-                    <span className="text-[10px] text-emerald-400 font-medium mt-1 block">
-                      {dailyBookings.filter((b) => b.paymentStatus === 'paid').length} {isTh ? 'บิลชำระเงิน' : 'paid bills'}
-                    </span>
-                  </div>
-
-                  {/* Today's Total Bookings */}
-                  <div className="bg-[#0F172A] border border-slate-800 p-3.5 rounded-2xl relative overflow-hidden">
-                    <div className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center mb-2">
-                      <Car className="w-4 h-4" />
-                    </div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-                      {isTh ? 'จำนวนคิววันนี้' : "Today's Bookings"}
-                    </span>
-                    <p className="text-xl font-black text-white mt-0.5">
-                      {dailyBookings.length} {isTh ? 'คัน' : 'cars'}
-                    </p>
-                    <span className="text-[10px] text-blue-300 font-medium mt-1 block">
-                      {dailyPackageRedemptions} {isTh ? 'ใช้สิทธิ์แพ็คเกจ' : 'package uses'}
-                    </span>
-                  </div>
-
-                  {/* Queue Status Breakdown */}
-                  <div className="bg-[#0F172A] border border-slate-800 p-3.5 rounded-2xl col-span-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-200">
-                        {isTh ? 'สถานะคิวงานประจำวัน' : 'Daily Job Status'}
-                      </span>
-                      <span className="text-[10px] text-slate-400">{adminSelectedDate}</span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="bg-[#060913] border border-slate-800/80 p-2 rounded-xl">
-                        <span className="text-[10px] text-slate-400 block">รอดำเนินการ</span>
-                        <span className="text-base font-bold text-blue-300">{dailyPendingCount}</span>
-                      </div>
-                      <div className="bg-[#060913] border border-slate-800/80 p-2 rounded-xl">
-                        <span className="text-[10px] text-slate-400 block">กำลังล้าง</span>
-                        <span className="text-base font-bold text-indigo-400">{dailyInProgressCount}</span>
-                      </div>
-                      <div className="bg-[#060913] border border-slate-800/80 p-2 rounded-xl">
-                        <span className="text-[10px] text-slate-400 block">พร้อมส่งมอบ</span>
-                        <span className="text-base font-bold text-emerald-400">{dailyReadyCount}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Studio Intake Actions */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setWalkInModalOpen(true)}
-                    className="bg-[#0F172A] hover:bg-slate-800 border border-slate-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-blue-400" />
-                    <span>{isTh ? '+ รับรถ Walk-in (฿500)' : '+ Walk-in (฿500)'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setLockSlotModalOpen(true)}
-                    className="bg-[#0F172A] hover:bg-slate-800 border border-slate-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
-                  >
-                    <Lock className="w-3.5 h-3.5 text-blue-400" />
-                    <span>{isTh ? 'ล็อกช่องเวลา' : 'Lock Bay Slot'}</span>
-                  </button>
-                </div>
-
-                {/* Today's Schedule Overview */}
-                <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-3.5 space-y-2">
-                  <h3 className="text-xs font-bold text-slate-200">
-                    {isTh ? `ตารางคิววันที่ ${adminSelectedDate}` : `Schedule for ${adminSelectedDate}`}
-                  </h3>
-
-                  {dailyBookings.length === 0 ? (
-                    <p className="text-xs text-slate-500 py-3 text-center">
-                      {isTh ? 'ไม่มีคิวนัดหมายในวันนี้' : 'No bookings for this date.'}
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {dailyBookings.map((b) => (
-                        <div
-                          key={b.id}
-                          className="bg-[#060913] border border-slate-800 p-2.5 rounded-xl flex items-center justify-between text-xs"
-                        >
-                          <div>
-                            <span className="font-bold text-blue-400 mr-2">{b.timeSlot} น.</span>
-                            <span className="text-slate-200 font-semibold">{b.carInfo}</span>
-                            <span className="text-[10px] text-slate-400 block">{b.customerName}</span>
-                          </div>
-                          <div className="text-right">
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                b.status === 'ready'
-                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                  : b.status === 'pending'
-                                  ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                                  : 'bg-indigo-950 text-indigo-300 border border-indigo-800'
-                              }`}
-                            >
-                              {b.status}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ADMIN SUB-TAB 2: BOOKINGS LIST & STATUS ADVANCEMENT */}
-            {adminActiveTab === 'bookings' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-200">
-                    {isTh ? `รายการคิวทั้งหมด (${filteredAdminBookings.length} คัน)` : 'All Bookings'}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setWalkInModalOpen(true)}
-                    className="text-blue-400 hover:underline text-xs font-bold flex items-center gap-1 active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Walk-in ฿500</span>
-                  </button>
-                </div>
-
-                {/* Filter Pills */}
-                <div className="flex gap-1.5 overflow-x-auto pb-1 text-[11px]">
-                  {(['all', 'pending', 'inprogress', 'ready'] as const).map((filterKey) => (
-                    <button
-                      key={filterKey}
-                      type="button"
-                      onClick={() => setAdminBookingFilter(filterKey)}
-                      className={`px-2.5 py-1 rounded-lg border transition whitespace-nowrap ${
-                        adminBookingFilter === filterKey
-                          ? 'bg-blue-600 text-white border-blue-500 font-bold'
-                          : 'bg-[#0F172A] border-slate-800 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {filterKey === 'all'
-                        ? 'ทั้งหมด'
-                        : filterKey === 'pending'
-                        ? 'รอดำเนินการ'
-                        : filterKey === 'inprogress'
-                        ? 'กำลังล้าง'
-                        : 'พร้อมส่งมอบ'}
-                    </button>
-                  ))}
-                </div>
-
-                {filteredAdminBookings.length === 0 ? (
-                  <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-500">
-                    {isTh ? 'ไม่มีรายการจองตามตัวกรองที่เลือก' : 'No bookings found.'}
-                  </div>
-                ) : (
-                  filteredAdminBookings.map((b) => (
-                    <div
-                      key={b.id}
-                      className="bg-[#0F172A] border border-slate-800 rounded-2xl p-3.5 space-y-2.5 shadow-md"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-xs font-bold text-blue-400">{b.id}</span>
-                            <span className="text-xs font-bold text-white">{b.timeSlot} น.</span>
-                            {b.paymentMethod === 'package' && (
-                              <span className="text-[9px] bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800">
-                                แพ็คเกจ ฿0
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="text-xs font-bold text-slate-200 mt-1">{b.carInfo}</h4>
-                          <p className="text-[11px] text-slate-400">
-                            {b.customerName} • {b.phone}
-                          </p>
-                          {b.subOption && (
-                            <p className="text-[10px] text-blue-300 mt-0.5">{b.subOption}</p>
-                          )}
-                        </div>
-
-                        <div className="text-right">
-                          <span className="text-xs font-extrabold text-blue-400 block">
-                            {b.paymentMethod === 'package' ? '฿0 (สิทธิ์)' : `฿${b.paidAmount?.toLocaleString()}`}
-                          </span>
-                          <span className="text-[10px] text-emerald-400 font-medium">
-                            {b.paymentStatus === 'paid' ? 'ชำระแล้ว' : 'ใช้สิทธิ์แพ็คเกจ'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Slip Attachment Check if present */}
-                      {b.paymentSlipUrl && (
-                        <div className="flex items-center gap-2 bg-[#060913] p-2 rounded-xl border border-slate-800 text-[11px]">
-                          <img
-                            src={b.paymentSlipUrl}
-                            alt="slip"
-                            className="w-8 h-8 rounded object-cover cursor-pointer hover:scale-105 transition"
-                            onClick={() =>
-                              setLightboxData({
-                                open: true,
-                                title: `สลิปโอนเงินคิว ${b.id}`,
-                                caption: `${b.customerName} - ฿${b.paidAmount}`,
-                                url: b.paymentSlipUrl!,
-                              })
-                            }
-                          />
-                          <span className="text-emerald-400 font-medium">แนบสลิปโอนเงินแล้ว (คลิกดูภาพ)</span>
-                        </div>
-                      )}
-
-                      {/* Status Update Step Selector */}
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-slate-400">อัปเดตสเต็ป:</span>
-                          <select
-                            value={b.status}
-                            onChange={(e) =>
-                              handleUpdateBookingStage(b.id, e.target.value as BookingRecord['status'])
-                            }
-                            className="bg-[#060913] border border-slate-700 text-white text-[11px] px-2 py-1 rounded-lg outline-none focus:border-blue-500"
-                          >
-                            <option value="pending">รอดำเนินการ</option>
-                            <option value="step1">1: รับรถ & ตรวจสภาพ</option>
-                            <option value="step2">2: สลายคราบช่วงล่าง</option>
-                            <option value="step3">3: ล้างโฟม pH 7</option>
-                            <option value="step4">4: เช็ดแห้ง & คลีนภายใน</option>
-                            <option value="ready">5: เสร็จสมบูรณ์ (พร้อมส่งมอบ)</option>
-                          </select>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setCancelModalBooking(b)}
-                          className="text-red-400 hover:text-red-300 text-[11px] font-medium flex items-center gap-1 active:scale-95"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          <span>ยกเลิก</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* ADMIN SUB-TAB 3: CUSTOMER PACKAGES MANAGEMENT */}
-            {adminActiveTab === 'packages' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
+              {/* Studio Detailing Specifications Pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400 shrink-0" />
                   <div>
-                    <h3 className="text-xs font-bold text-slate-200">
-                      {isTh ? 'ตรวจสอบและจัดการแพ็คเกจลูกค้า' : 'Customer Packages'}
-                    </h3>
-                    <p className="text-[10px] text-slate-400">
-                      มีทั้งหมด {customerPackages.length} แพ็คเกจในระบบ
-                    </p>
+                    <p className="text-[10px] text-slate-400">{isTh ? 'ระยะเวลา' : 'Duration'}</p>
+                    <p className="font-semibold text-slate-200">1 {isTh ? 'ชั่วโมง' : 'Hour'}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setAdminNewPackageModalOpen(true)}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold text-xs px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{isTh ? '+ ออกแพ็คเกจ' : '+ Issue'}</span>
-                  </button>
                 </div>
-
-                <div className="space-y-2.5">
-                  {customerPackages.map((pkg) => (
-                    <div
-                      key={pkg.id}
-                      className="bg-[#0F172A] border border-slate-800 rounded-2xl p-3.5 space-y-2 shadow-sm"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] font-bold text-blue-300 bg-blue-950/80 px-1.5 py-0.5 rounded border border-blue-500/30">
-                              {pkg.id}
-                            </span>
-                            <span
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                                pkg.status === 'active'
-                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                  : pkg.status === 'exhausted'
-                                  ? 'bg-slate-800 text-slate-400'
-                                  : 'bg-red-950 text-red-400'
-                              }`}
-                            >
-                              {pkg.status}
-                            </span>
-                          </div>
-                          <h4 className="text-xs font-bold text-white mt-1">{pkg.packageNameTh}</h4>
-                          <p className="text-[11px] text-slate-300">
-                            {pkg.customerName} • {pkg.carInfo}
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            โทร: {pkg.phone} • หมดอายุ: {pkg.expiryDate}
-                          </p>
-                        </div>
-
-                        <div className="text-right">
-                          <span className="text-xs font-black text-blue-400">
-                            {pkg.remainingQuota} / {pkg.totalQuota} ครั้ง
-                          </span>
-                          <span className="text-[10px] text-slate-500 block">
-                            ฿{pkg.pricePaid.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Quota modifier actions */}
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                        <span className="text-[11px] text-slate-400">ปรับโควตาสิทธิ์:</span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleAdjustPackageQuota(pkg.id, -1)}
-                            disabled={pkg.remainingQuota <= 0}
-                            className="bg-[#060913] border border-slate-700 hover:border-slate-500 text-slate-200 px-2 py-0.5 rounded text-xs disabled:opacity-30 active:scale-95"
-                          >
-                            -1
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAdjustPackageQuota(pkg.id, 1)}
-                            disabled={pkg.remainingQuota >= pkg.totalQuota}
-                            className="bg-[#060913] border border-slate-700 hover:border-slate-500 text-slate-200 px-2 py-0.5 rounded text-xs disabled:opacity-30 active:scale-95"
-                          >
-                            +1
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleCancelPackage(pkg.id)}
-                            className="text-red-400 hover:text-red-300 ml-2 text-[11px] active:scale-95"
-                          >
-                            ยกเลิกแพ็คเกจ
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-slate-400">{isTh ? 'ผลิตภัณฑ์' : 'Product'}</p>
+                    <p className="font-semibold text-slate-200">pH 7 Premium</p>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2">
+                  <Award className="w-4 h-4 text-blue-400 shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-slate-400">{isTh ? 'เทคนิค' : 'Technique'}</p>
+                    <p className="font-semibold text-slate-200">Two-Bucket 100%</p>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <p className="text-[10px] text-slate-400">{isTh ? 'การรับประกัน' : 'Guarantee'}</p>
+                    <p className="font-semibold text-slate-200">24 ชม. กันน้ำฝน</p>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        ) : (
-          /* ==================== VIEW 2: CUSTOMER FRONT-END ==================== */
-          <div className="flex-1 flex flex-col">
-            
-            {/* Top 3-Pill Sub-Navigation with Micro-interactions */}
-            <div className="grid grid-cols-3 gap-1 p-2 bg-[#060913] border-b border-slate-800">
-              <button
-                type="button"
-                onClick={() => setCustomerTab('booking')}
-                className={`py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95 ${
-                  customerTab === 'booking'
-                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-md font-extrabold ring-1 ring-blue-400/40'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>{isTh ? 'จองคิวล้างรถ' : 'Book Wash'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCustomerTab('packages')}
-                className={`py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95 ${
-                  customerTab === 'packages'
-                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-md font-extrabold ring-1 ring-blue-400/40'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Ticket className="w-3.5 h-3.5" />
-                <span>{isTh ? 'แพ็คเกจเหมาจ่าย' : 'Packages'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCustomerTab('vault')}
-                className={`py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95 ${
-                  customerTab === 'vault'
-                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-md font-extrabold ring-1 ring-blue-400/40'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Car className="w-3.5 h-3.5" />
-                <span>{isTh ? 'รถสด & แต้ม' : 'Tracker'}</span>
-              </button>
-            </div>
 
-            {/* TAB 1: 📅 จองคิวล้างรถ (Luxury 3-Section Frictionless Flow) */}
-            {customerTab === 'booking' ? (
-              <div className="p-4 space-y-4">
-                {/* Luxury Studio Hero Card (Styled in Deep Blue / Royal Sapphire) */}
-                <div className="bg-gradient-to-br from-[#0F172A] via-[#0A0F1D] to-[#060913] border border-blue-500/30 rounded-2xl p-4 shadow-xl relative overflow-hidden group">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="text-[10px] font-extrabold text-blue-300 uppercase tracking-wider bg-blue-950/80 border border-blue-500/30 px-2.5 py-0.5 rounded-full inline-block mb-1.5">
-                        Beyond Clean. Professionally Detailed.
-                      </span>
-                      <h2 className="text-base font-extrabold text-white autoboutique-title-bar">
-                        {isTh ? 'ล้างรถพรีเมียม & ดูดฝุ่นละเอียด' : 'Premium Hand Wash & Vacuum'}
-                      </h2>
-                      <p className="text-xs text-slate-300 mt-1 pl-3">
-                        {isTh
-                          ? 'โฟม pH 7 ปลอดภัย 100% ต่อสีรถและชั้นเคลือบเซรามิก/PPF'
-                          : '100% pH Neutral scratch-free studio detailing'}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-[10px] text-slate-400 block uppercase">ราคาเริ่มต้น</span>
-                      <span className="text-xl font-black text-blue-400">฿500</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-300">
-                    <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>{isTh ? 'การันตีฝนตก 24 ชม. ล้างซ้ำฟรี' : '24-Hr Clean Guarantee'}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowcaseModalOpen(true)}
-                      className="text-blue-400 hover:underline font-semibold active:scale-95 transition"
-                    >
-                      {isTh ? 'ดูตัวอย่างงาน' : 'Preview'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* SECTION 1: บริการล้างรถ & ออปชันเสริม (Service & Add-ons) */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black">
-                      1
-                    </span>
-                    <span>{isTh ? 'เลือกบริการและออปชันเสริม' : 'Choose Wash Options'}</span>
-                  </label>
-
-                  <div className="space-y-1.5">
-                    {SERVICE_SUB_OPTIONS.wash.map((opt) => {
-                      const isSelected = selectedSubOption === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => setSelectedSubOption(opt.id)}
-                          className={`w-full p-3 rounded-xl border text-left transition flex items-center justify-between text-xs active:scale-99 ${
-                            isSelected
-                              ? 'bg-blue-600/15 border-blue-500 text-white shadow-md ring-1 ring-blue-500/30'
-                              : 'bg-[#0F172A] border-slate-800 text-slate-300 hover:border-slate-700'
-                          }`}
-                        >
-                          <div>
-                            <span className="font-semibold block flex items-center gap-1.5">
-                              <span>{isTh ? opt.labelTh : opt.labelEn}</span>
-                              {isSelected && <BadgeCheck className="w-3.5 h-3.5 text-blue-400" />}
-                            </span>
-                            <span className="text-[10px] text-slate-400 mt-0.5 block">
-                              {opt.id === 'standard'
-                                ? 'ล้างภายนอก โฟม 2 ถัง ดูดฝุ่น เช็ดแห้ง เคลือบยาง'
-                                : opt.id === 'engine'
-                                ? 'ล้างห้องเครื่องด้วยน้ำยาสลายคราบน้ำมันและเคลือบเงา'
-                                : opt.id === 'wax'
-                                ? 'ลงแว็กซ์สูตร Hydrophobic เงาลื่นลึก น้ำไม่เกาะ'
-                                : 'ขัดกระจกบานหน้าและรอบคัน ไล่น้ำฝนทัศนวิสัยชัด'}
-                            </span>
-                          </div>
-                          <div className="text-right shrink-0 ml-2">
-                            <span className="font-bold text-blue-400">
-                              {opt.addPrice === 0 ? '฿500' : `+฿${opt.addPrice}`}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* SECTION 2: เลือกวันและเวลานัดหมาย (Date & Time) */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                      <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black">
-                        2
-                      </span>
-                      <span>{isTh ? 'เลือกวันและเวลาที่สะดวก' : 'Select Date & Time'}</span>
-                    </label>
-
-                    <button
-                      type="button"
-                      onClick={() => setCalendarModalOpen(true)}
-                      className="text-blue-400 hover:underline text-xs font-medium flex items-center gap-1 active:scale-95 transition"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>{isTh ? 'ปฏิทินล่วงหน้า' : 'Calendar'}</span>
-                    </button>
-                  </div>
-
-                  {/* Week Selector */}
-                  <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (currentWeekIndex > 0) setCurrentWeekIndex((prev) => prev - 1);
-                        }}
-                        disabled={currentWeekIndex <= 0}
-                        className="p-1 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 active:scale-90"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <span className="text-xs font-bold text-blue-300">
-                        {activeWeek.monthTh}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (currentWeekIndex < WEEKS_SCHEDULE.length - 1)
-                            setCurrentWeekIndex((prev) => prev + 1);
-                        }}
-                        disabled={currentWeekIndex >= WEEKS_SCHEDULE.length - 1}
-                        className="p-1 rounded-lg text-slate-400 hover:text-white disabled:opacity-30 active:scale-90"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-6 gap-1 text-center">
-                      {activeWeek.dates.map((d) => (
-                        <button
-                          key={d.dateStr}
-                          type="button"
-                          disabled={d.isClosed}
-                          onClick={() => setSelectedDate(d.dateStr)}
-                          className={`p-2 rounded-xl border transition flex flex-col items-center justify-center active:scale-95 ${
-                            d.isClosed
-                              ? 'bg-slate-950/40 border-slate-900 text-slate-600 cursor-not-allowed opacity-30'
-                              : selectedDate === d.dateStr
-                              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 border-blue-400 text-white font-extrabold shadow-md'
-                              : 'bg-[#060913] border-slate-800 text-slate-300 hover:border-slate-700'
-                          }`}
-                        >
-                          <span className="text-[10px] font-medium">{d.dayTh}</span>
-                          <span className="font-bold text-xs mt-0.5">{d.dateNum.split(' ')[0]}</span>
-                          {d.isClosed && (
-                            <span className="text-[8px] text-red-400 font-bold">ปิด</span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 3-Column Time Slot Grid */}
-                  <div className="grid grid-cols-3 gap-2 pt-1">
-                    {TIME_SLOTS.map((slot) => {
-                      const avail = getSlotAvailability(selectedDate, slot, bookings, lockedSlots);
-                      const isSelected = bookingTimeSlot === slot;
-
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          disabled={avail.isFull}
-                          onClick={() => setBookingTimeSlot(slot)}
-                          className={`p-2.5 rounded-xl border transition text-center flex flex-col items-center justify-between active:scale-95 ${
-                            avail.isFull
-                              ? 'bg-[#060913] border-slate-900 text-slate-600 opacity-40 cursor-not-allowed'
-                              : isSelected
-                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 border-blue-400 text-white font-extrabold shadow-md ring-2 ring-blue-500/50'
-                              : 'bg-[#0F172A] border-slate-800 text-slate-300 hover:border-slate-700'
-                          }`}
-                        >
-                          <span className="font-bold text-xs">{slot} น.</span>
-                          <span
-                            className={`text-[9px] mt-1 font-bold ${
-                              avail.isFull
-                                ? 'text-red-400'
-                                : isSelected
-                                ? 'text-white'
-                                : 'text-emerald-400'
-                            }`}
-                          >
-                            {avail.isFull ? 'เต็ม' : `ว่าง ${avail.available} คัน`}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* SECTION 3: ข้อมูลรถและผู้จอง (Car & Contact) with Real-time Helpers */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black">
-                      3
-                    </span>
-                    <span>{isTh ? 'ข้อมูลรถและผู้จอง' : 'Vehicle & Contact'}</span>
-                  </label>
-
-                  <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-3.5 space-y-2.5">
-                    <input
-                      type="text"
-                      value={formCar}
-                      onChange={(e) => setFormCar(e.target.value.toUpperCase())}
-                      placeholder="ยี่ห้อ / รุ่น / เลขทะเบียนรถ (เช่น BMW M2 กข 8888 ภูเก็ต)"
-                      className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl outline-none focus:border-blue-500 uppercase tracking-wide transition"
-                    />
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={formName}
-                        onChange={(e) => setFormName(e.target.value)}
-                        placeholder="ชื่อผู้จอง"
-                        className="bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl outline-none focus:border-blue-500 transition"
-                      />
-                      <div className="relative">
-                        <input
-                          type="tel"
-                          value={formPhone}
-                          onChange={(e) => setFormPhone(formatPhoneInput(e.target.value))}
-                          placeholder="เบอร์โทรศัพท์ (08X-XXX-XXXX)"
-                          className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl outline-none focus:border-blue-500 transition"
-                        />
-                        {isValidThaiPhone(formPhone) && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 absolute right-2.5 top-3" />
-                        )}
-                      </div>
-                    </div>
-
-                    <label className="flex items-center gap-2 pt-1 text-xs text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={vipDelivery}
-                        onChange={(e) => setVipDelivery(e.target.checked)}
-                        className="rounded border-slate-700 text-blue-600 focus:ring-0"
-                      />
-                      <span>{isTh ? 'ต้องการบริการรับ-ส่งรถถึงที่ (VIP Concierge)' : 'VIP Pickup & Delivery'}</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Summary & Checkout Action */}
-                <div className="pt-2">
-                  {/* If Customer has selected an active package to redeem */}
-                  {activeRedeemPackage ? (
-                    <div className="bg-gradient-to-r from-blue-950/90 to-[#0F172A] border border-blue-700 p-3.5 rounded-2xl space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-blue-300 flex items-center gap-1.5">
-                          <Ticket className="w-4 h-4 text-blue-400" />
-                          <span>ใช้สิทธิ์แพ็คเกจ: {activeRedeemPackage.packageNameTh}</span>
-                        </span>
-                        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-800">
-                          คงเหลือ {activeRedeemPackage.remainingQuota} ครั้ง
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={!bookingTimeSlot}
-                        onClick={() => handleCompleteBookingPayment('package', activeRedeemPackage.id)}
-                        className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-40 text-white font-bold py-3.5 rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 active:scale-98"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>
-                          {bookingTimeSlot
-                            ? isTh
-                              ? `ยืนยันใช้สิทธิ์จองคิว ฿0 (${bookingTimeSlot} น.)`
-                              : `Confirm ฿0 Booking (${bookingTimeSlot})`
-                            : isTh
-                            ? 'กรุณาเลือกเวลานัดหมาย'
-                            : 'Select Time Slot First'}
-                        </span>
-                      </button>
-                    </div>
-                  ) : (
-                    /* PromptPay QR Trigger */
-                    <button
-                      type="button"
-                      disabled={!bookingTimeSlot}
-                      onClick={() => {
-                        setUploadedSlipPreview(null);
-                        setSlipVerified(false);
-                        setPromptPayModal({
-                          open: true,
-                          type: 'booking',
-                          title: `จองคิวล้างรถพรีเมียม (${selectedDate} เวลา ${bookingTimeSlot} น.)`,
-                          amount: currentPrice,
-                        });
-                      }}
-                      className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-40 text-white font-black py-3.5 rounded-xl text-xs shadow-xl shadow-blue-600/30 transition flex items-center justify-center gap-2 tracking-wide active:scale-98"
-                    >
-                      <QrCode className="w-4 h-4 text-white" />
-                      <span>
-                        {bookingTimeSlot
-                          ? isTh
-                            ? `สแกน PromptPay QR เพื่อจองคิว (฿${currentPrice.toLocaleString()})`
-                            : `Scan PromptPay QR (฿${currentPrice.toLocaleString()})`
-                          : isTh
-                          ? 'กรุณาเลือกเวลานัดหมายด้านบน'
-                          : 'Select Time Slot First'}
-                      </span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : customerTab === 'packages' ? (
-              /* TAB 2: 🎟️ แพ็คเกจเหมาจ่าย & วอชเชอร์ (Packages & Deals) */
-              <div className="p-4 space-y-4">
-                <div className="text-center space-y-1">
-                  <h2 className="text-base font-extrabold text-white tracking-tight">
-                    {isTh ? 'แพ็คเกจเหมาจ่ายสุดคุ้ม' : 'Car Wash Packages'}
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    {isTh
-                      ? 'เหมาจ่ายสุดคุ้ม ประหยัดสูงสุด พร้อมสิทธิ์จองคิวฟรี ฿0 ตลอดอายุการใช้งาน'
-                      : 'Prepaid wash credits at member pricing'}
-                  </p>
-                </div>
-
-                {/* Section 1: แพ็คเกจของฉัน (My Active Packages) */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                      <Ticket className="w-4 h-4 text-blue-400" />
-                      <span>{isTh ? 'แพ็คเกจของฉัน' : 'My Active Packages'}</span>
-                    </h3>
-                    <span className="text-[11px] text-blue-400 font-semibold">
-                      {customerPackages.filter((p) => p.status === 'active').length} {isTh ? 'รายการ' : 'active'}
-                    </span>
-                  </div>
-
-                  {customerPackages.filter((p) => p.status === 'active').length === 0 ? (
-                    <div className="bg-[#0F172A] border border-slate-800 rounded-xl p-4 text-center text-xs text-slate-500">
-                      {isTh ? 'คุณยังไม่มีแพ็คเกจล้างรถ เลือกซื้อแพ็คเกจเหมาจ่ายสุดคุ้มด้านล่างได้ทันที' : 'No active packages.'}
-                    </div>
-                  ) : (
-                    customerPackages
-                      .filter((p) => p.status === 'active')
-                      .map((pkg) => (
-                        <div
-                          key={pkg.id}
-                          className="bg-[#0F172A] border border-blue-500/30 rounded-2xl p-3.5 space-y-2.5 relative overflow-hidden shadow-lg"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-blue-300 bg-blue-950/80 px-2.5 py-0.5 rounded-full border border-blue-500/40">
-                              {pkg.packageNameTh}
-                            </span>
-                            <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-800">
-                              คงเหลือ {pkg.remainingQuota} / {pkg.totalQuota} ครั้ง
-                            </span>
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-slate-200 font-medium">
-                              {pkg.customerName} • {pkg.carInfo}
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">
-                              รหัส: {pkg.id} • หมดอายุ: {pkg.expiryDate}
-                            </p>
-                          </div>
-
-                          {/* Progress Bar */}
-                          <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                            <div
-                              className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 rounded-full transition-all duration-500"
-                              style={{ width: `${Math.round((pkg.remainingQuota / pkg.totalQuota) * 100)}%` }}
-                            />
-                          </div>
-
-                          {/* 1-Tap Book with this package */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedPackageIdToRedeem(pkg.id);
-                              setCustomerTab('booking');
-                              setToastMessage(isTh ? `🎟️ เลือกใช้สิทธิ์ ${pkg.packageNameTh} เรียบร้อย` : 'Redeeming package');
-                              setTimeout(() => setToastMessage(null), 3000);
-                            }}
-                            className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md active:scale-98"
-                          >
-                            <Calendar className="w-3.5 h-3.5" />
-                            <span>{isTh ? '📅 ใช้สิทธิ์จองคิวล้างรถ (฿0)' : 'Book with this package (฿0)'}</span>
-                          </button>
-                        </div>
-                      ))
-                  )}
-                </div>
-
-                {/* Section 2: เลือกซื้อแพ็คเกจเหมาจ่ายสุดคุ้ม (Official Deals Catalog) */}
-                <div className="space-y-3 pt-2">
-                  <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-blue-400" />
-                    <span>{isTh ? 'เลือกซื้อแพ็คเกจเหมาจ่ายสุดคุ้ม' : 'Official Package Deals'}</span>
-                  </h3>
-
-                  {OFFICIAL_PACKAGES.map((deal) => (
-                    <div
-                      key={deal.id}
-                      className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-3 relative hover:border-blue-500/40 transition shadow-md"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <span className="text-[10px] font-bold text-blue-300 bg-blue-950/80 border border-blue-500/30 px-2 py-0.5 rounded-full">
-                            {deal.badgeTh}
-                          </span>
-                          <h4 className="font-bold text-sm text-white mt-1.5">{deal.nameTh}</h4>
-                          <p className="text-xs text-slate-400 mt-0.5">{deal.descriptionTh}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-                        <div>
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-                            {isTh ? 'ราคาแพ็คเกจ' : 'Package Price'}
-                          </span>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-lg font-black text-blue-400">฿{deal.price.toLocaleString()}</span>
-                            <span className="text-xs text-slate-500 line-through">
-                              ฿{(deal.totalUses * deal.singlePrice).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUploadedSlipPreview(null);
-                            setSlipVerified(false);
-                            setPromptPayModal({
-                              open: true,
-                              type: 'package',
-                              title: `ซื้อ ${deal.nameTh}`,
-                              amount: deal.price,
-                              packageDraft: deal,
-                            });
-                          }}
-                          className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition shadow-md active:scale-95"
-                        >
-                          {isTh ? 'ซื้อแพ็คเกจนี้' : 'Buy Package'}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Section 3: 15-Minute Policy Card */}
-                <div className="bg-[#0F172A] border border-slate-800 rounded-xl p-3.5 space-y-1.5 text-xs text-slate-400">
-                  <div className="flex items-center gap-1.5 text-blue-400 font-bold">
-                    <Info className="w-4 h-4" />
-                    <span>{isTh ? 'นโยบายการยกเลิกคืนสิทธิ์โควตา 15 นาที' : '15-Minute Cancellation Policy'}</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed">
-                    {isTh
-                      ? 'เมื่อใช้สิทธิ์แพ็คเกจจองคิว หากทำการยกเลิกภายใน 15 นาทีหลังจากจอง ระบบจะคืนสิทธิ์ให้ทันที 1 ครั้งเต็ม หากยกเลิกหลังจาก 15 นาที จะถือว่าเป็นการสละสิทธิ์ตามระเบียบสตูดิโอ'
-                      : 'Cancellations within 15 minutes of booking creation receive a full package credit refund. After 15 minutes, credits are forfeited.'}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              /* TAB 3: 🚗 รถของฉัน, ติดตามสถานะสด & สะสมแต้ม (Live Tracker & Vault) */
-              <div className="p-4 space-y-4">
-                {/* Search Bar */}
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={vehicleSearchQuery}
-                    onChange={(e) => setVehicleSearchQuery(e.target.value)}
-                    placeholder={isTh ? '🔍 ค้นหาด้วยทะเบียน หรือ รหัสจอง (เช่น กข 8888, BK-001)' : 'Search plate or ID...'}
-                    className="w-full pl-9 pr-8 py-2 text-xs border border-slate-800 rounded-xl bg-[#0F172A] text-white outline-none focus:border-blue-500 transition"
-                  />
-                  {vehicleSearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setVehicleSearchQuery('')}
-                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Vehicle Selector (Cards) */}
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  {matchingVehicles.map((car) => {
-                    const isSelected = car.id === currentTrackingCar.id;
+              {/* Studio Detailing Add-ons */}
+              <div className="space-y-3 pt-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                  <span>{isTh ? 'ตัวเลือกเสริมระดับสตูดิโอ (Studio Detailing Add-ons):' : 'Select Studio Detailing Options:'}</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {SERVICE_SUB_OPTIONS.wash.map((opt) => {
+                    const isSelected = selectedSubOption === opt.id;
                     return (
                       <button
-                        key={car.id}
+                        key={opt.id}
                         type="button"
-                        onClick={() => setActiveCarId(car.id)}
-                        className={`p-2.5 rounded-xl border text-left shrink-0 transition min-w-[140px] active:scale-95 ${
+                        onClick={() => setSelectedSubOption(opt.id)}
+                        className={`p-3.5 rounded-xl border text-left transition flex items-center justify-between gap-3 ${
                           isSelected
-                            ? 'bg-blue-600/20 border-blue-500 text-white shadow-md ring-1 ring-blue-500/40'
-                            : 'bg-[#0F172A] border-slate-800 text-slate-400 hover:border-slate-700'
+                            ? 'bg-blue-950/40 border-blue-500 shadow-md shadow-blue-950/40'
+                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300'
                         }`}
                       >
-                        <span className="font-mono text-[10px] text-blue-400 font-bold block">{car.id}</span>
-                        <span className="font-bold text-xs truncate block text-slate-200">{car.carInfo}</span>
-                        <span className="text-[10px] text-slate-400 mt-0.5 block">{car.timeSlot} น.</span>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                              isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-600'
+                            }`}
+                          >
+                            {isSelected && <CheckCheck className="w-3 h-3" />}
+                          </div>
+                          <div className="truncate">
+                            <p className="text-xs font-semibold text-white truncate">
+                              {isTh ? opt.labelTh : opt.labelEn}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {opt.addPrice > 0 ? `+฿${opt.addPrice} บาท` : isTh ? 'รวมในแพ็กเกจแล้ว' : 'Included in Base'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-blue-400 shrink-0">
+                          {opt.addPrice > 0 ? `+฿${opt.addPrice}` : '฿0'}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
+              </div>
+            </section>
 
-                {/* SECTION 1: 5-Stage Detailing Progress with Estimated Time */}
-                <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1">
-                        <Timer className="w-3 h-3 text-blue-400" />
-                        <span>คาดว่าเสร็จสิ้น: {getEstimatedCompletion(currentTrackingCar.timeSlot)} น.</span>
-                      </span>
-                      <h3 className="font-bold text-sm text-white mt-0.5">
-                        {currentTrackingCar.carInfo}
-                      </h3>
-                    </div>
-                    <span className="text-xs font-bold text-blue-300 bg-blue-950/80 px-2.5 py-1 rounded-full border border-blue-500/40">
-                      สเต็ป {trackerStage} / 5
-                    </span>
-                  </div>
-
-                  {/* 5-Step Vertical Flow */}
-                  <div className="space-y-3 pt-2">
-                    {[1, 2, 3, 4, 5].map((stepNum) => {
-                      const stepDetails = getStageDetails(stepNum, isTh);
-                      const isCompleted = trackerStage > stepNum;
-                      const isCurrent = trackerStage === stepNum;
-                      const hasReached = trackerStage >= stepNum;
-
-                      return (
-                        <div key={stepNum} className="flex items-start gap-3 relative">
-                          {/* Step number badge */}
-                          <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 transition ${
-                              isCompleted
-                                ? 'bg-emerald-600 text-white'
-                                : isCurrent
-                                ? 'bg-blue-600 text-white ring-4 ring-blue-500/25 font-black animate-pulse'
-                                : 'bg-slate-800 text-slate-500'
-                            }`}
-                          >
-                            {isCompleted ? '✓' : stepNum}
-                          </div>
-
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <h4
-                                className={`text-xs font-bold ${
-                                  isCurrent ? 'text-blue-400' : isCompleted ? 'text-slate-200' : 'text-slate-500'
-                                }`}
-                              >
-                                {isTh ? stepDetails.titleTh : stepDetails.titleEn}
-                              </h4>
-                              {isCurrent && (
-                                <span className="text-[10px] bg-blue-950/80 text-blue-300 font-semibold px-2 py-0.5 rounded-full border border-blue-500/30">
-                                  {isTh ? 'กำลังล้าง' : 'In Progress'}
-                                </span>
-                              )}
-                              {trackerStage === 5 && stepNum === 5 && (
-                                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                  {isTh ? 'พร้อมส่งมอบ' : 'Ready'}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400 mt-0.5">
-                              {isTh ? stepDetails.descTh : stepDetails.descEn}
-                            </p>
-
-                            {/* Inspection Photo for reached stages */}
-                            {hasReached && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setLightboxData({
-                                    open: true,
-                                    title: isTh ? stepDetails.titleTh : stepDetails.titleEn,
-                                    caption: isTh ? stepDetails.photoCaptionTh : stepDetails.photoCaptionEn,
-                                    url: stepDetails.photoUrl,
-                                  })
-                                }
-                                className="mt-2 flex items-center gap-2 group text-left active:scale-95 transition"
-                              >
-                                <div className="relative rounded-lg overflow-hidden border border-slate-700 w-16 h-11 shrink-0">
-                                  <img
-                                    src={stepDetails.photoUrl}
-                                    alt="photo"
-                                    className="w-full h-full object-cover group-hover:scale-105 transition"
-                                  />
-                                  <div className="absolute inset-0 bg-slate-950/40 flex items-center justify-center text-white text-[9px] font-semibold">
-                                    <Camera className="w-3 h-3" />
-                                  </div>
-                                </div>
-                                <span className="text-[10px] text-blue-400 underline font-medium">
-                                  {isTh ? 'กดดูภาพถ่ายหน้างานจริง' : 'View live photo'}
-                                </span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+            {/* STEP 2: INTERACTIVE APPOINTMENT CALENDAR & BAY SLOTS */}
+            <section className="luxe-panel rounded-2xl p-4 md:p-6 space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <CalendarIcon className="w-4 h-4 text-blue-400" />
+                  <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider">
+                    {isTh ? 'วันและเวลาเข้ารับบริการ' : 'Select Schedule & Bay Slot'}
+                  </h3>
                 </div>
 
-                {/* SECTION 2: การันตีความสะอาด 24 ชม. (Studio Cleanliness Guarantee) */}
-                <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-blue-400">
-                    <ShieldCheck className="w-5 h-5" />
-                    <div>
-                      <h4 className="font-bold text-xs text-white">
-                        {isTh ? warranty.titleTh : warranty.titleEn}
-                      </h4>
-                      <span className="text-[10px] text-slate-400">ID: {warranty.warrantyId}</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    {isTh ? warranty.descTh : warranty.descEn}
-                  </p>
+                {/* Week/Month View Switcher */}
+                <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCalendarViewMode('week')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
+                      calendarViewMode === 'week' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400'
+                    }`}
+                  >
+                    {isTh ? 'รายสัปดาห์' : 'Week'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCalendarViewMode('month')}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
+                      calendarViewMode === 'month' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400'
+                    }`}
+                  >
+                    {isTh ? 'รายเดือน' : 'Month'}
+                  </button>
                 </div>
+              </div>
 
-                {/* SECTION 3: บัตรสะสมแต้มล้างรถ (Autoboutique Wash Pass) */}
-                <div className="bg-gradient-to-br from-[#0F172A] via-[#0A0F1D] to-[#060913] text-white border border-blue-500/30 rounded-2xl p-4 shadow-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] bg-blue-950/80 text-blue-300 font-bold px-2 py-0.5 rounded-full uppercase border border-blue-500/30">
-                        VIP Loyalty Card
-                      </span>
-                      <h4 className="font-bold text-sm text-white mt-1">AUTOBOUTIQUE WASH PASS</h4>
-                    </div>
-                    <span className="text-xs font-black text-white bg-gradient-to-r from-blue-600 to-indigo-600 px-2.5 py-1 rounded-lg shadow-sm">
-                      {stampsCount} / 10 {isTh ? 'ดวง' : 'Stamps'}
-                    </span>
+              {/* View 1: Week Mode */}
+              {calendarViewMode === 'week' && (
+                <div className="space-y-3">
+                  {/* Week Selector Chips */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                    {WEEKS_SCHEDULE.map((w, idx) => (
+                      <button
+                        key={w.weekIndex}
+                        type="button"
+                        onClick={() => setSelectedWeekIdx(idx)}
+                        className={`px-3 py-1.5 rounded-lg border shrink-0 text-xs font-medium transition ${
+                          selectedWeekIdx === idx
+                            ? 'bg-blue-900/40 border-blue-500 text-blue-200 font-semibold'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {isTh ? w.monthTh : w.monthEn} ({isTh ? `สัปดาห์ที่ ${w.weekIndex + 1}` : `Week ${w.weekIndex + 1}`})
+                      </button>
+                    ))}
                   </div>
 
-                  <p className="text-xs text-slate-300">
-                    {isTh
-                      ? 'สะสมครบ 10 ดวง รับสิทธิ์ล้างรถพรีเมียมฟรี 1 ครั้ง (มูลค่า ฿500)'
-                      : 'Collect 10 stamps to get 1 free premium wash!'}
-                  </p>
-
-                  {/* Stamp grid */}
-                  <div className="grid grid-cols-5 gap-2 pt-1">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                      const isStamped = num <= stampsCount;
-                      const isReward = num === 10;
+                  {/* Day Cards in Week */}
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {currentWeekSchedule.dates.map((day) => {
+                      const isSelected = selectedDate === day.dateStr;
                       return (
-                        <div
-                          key={num}
-                          className={`aspect-square rounded-xl border flex flex-col items-center justify-center text-xs font-bold transition ${
-                            isStamped
-                              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 border-blue-400 text-white shadow-md'
-                              : isReward
-                              ? 'bg-blue-950/80 border-blue-500/40 text-blue-300'
-                              : 'bg-slate-950/60 border-slate-800 text-slate-600'
+                        <button
+                          key={day.dateStr}
+                          type="button"
+                          disabled={day.isClosed}
+                          onClick={() => {
+                            if (!day.isClosed) setSelectedDate(day.dateStr);
+                          }}
+                          className={`p-3 rounded-xl border text-center transition flex flex-col items-center justify-center min-h-[78px] ${
+                            day.isClosed
+                              ? 'bg-slate-950/40 border-slate-900 opacity-40 cursor-not-allowed text-slate-600'
+                              : isSelected
+                              ? 'bg-blue-900/50 border-blue-500 shadow-md shadow-blue-900/30'
+                              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300'
                           }`}
                         >
-                          {isStamped ? '✓' : isReward ? '🎁' : num}
-                        </div>
+                          <span className="text-[11px] uppercase font-medium">{isTh ? day.dayTh : day.dayEn}</span>
+                          <span className="text-base font-bold my-0.5 text-white">{day.dateNum}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {day.isClosed ? (isTh ? 'ปิดทำการ' : 'Closed') : (isTh ? currentWeekSchedule.monthTh : currentWeekSchedule.monthEn)}
+                          </span>
+                        </button>
                       );
                     })}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ==================== FOOTER (Matching autoboutiqueth.com) ==================== */}
-            <footer className="mt-auto border-t border-slate-800/80 bg-[#060913] px-4 py-6 text-center text-xs space-y-3">
-              <div className="flex flex-col items-center justify-center gap-1">
-                <img
-                  src="/logo.png"
-                  alt="Autoboutique"
-                  className="h-7 w-auto object-contain brightness-110 drop-shadow"
-                />
-                <h4 className="text-sm font-extrabold text-white tracking-wider mt-1">
-                  AUTOBOUTIQUE PHUKET
-                </h4>
-                <p className="text-[11px] text-slate-400">
-                  Operated by C-Cube Automotive (Since 2008)
-                </p>
-                <p className="text-[11px] text-blue-400 italic font-medium">
-                  “Luxury you can feel.”
-                </p>
-              </div>
+              {/* View 2: Month Mode */}
+              {calendarViewMode === 'month' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-300">
+                      {isTh ? currentMonthData.labelTh : currentMonthData.labelEn}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {ADVANCE_MONTHS.map((m, idx) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() => setSelectedMonthIdx(idx)}
+                          className={`px-2.5 py-1 rounded text-[11px] font-medium border ${
+                            selectedMonthIdx === idx
+                              ? 'bg-blue-600 border-blue-500 text-white'
+                              : 'bg-slate-900 border-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {isTh ? m.shortTh : m.shortEn}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Social Channels */}
-              <div className="flex items-center justify-center gap-4 text-slate-400 pt-1">
-                <a
-                  href="https://www.facebook.com/autoboutiquebyccube/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-blue-400 transition text-[11px] font-semibold flex items-center gap-1"
-                >
-                  Facebook
-                </a>
-                <span>•</span>
-                <a
-                  href="https://www.tiktok.com/@autoboutique_phuket"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-blue-400 transition text-[11px] font-semibold flex items-center gap-1"
-                >
-                  TikTok
-                </a>
-                <span>•</span>
-                <a
-                  href="https://bit.ly/2G7JXMY"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-blue-400 transition text-[11px] font-semibold flex items-center gap-1"
-                >
-                  LINE OA
-                </a>
-              </div>
+                  <div className="grid grid-cols-7 gap-1.5 text-center text-xs">
+                    {['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'].map((d, i) => (
+                      <span key={d} className={`py-1 text-[11px] font-semibold ${i === 6 ? 'text-red-400' : 'text-slate-400'}`}>
+                        {d}
+                      </span>
+                    ))}
+                    {monthCalendarDays.map((d, idx) => {
+                      if (!d) return <div key={idx} className="h-9" />;
+                      const isSelected = selectedDate === d.dateStr;
+                      return (
+                        <button
+                          key={d.dateStr}
+                          type="button"
+                          disabled={d.isClosed}
+                          onClick={() => {
+                            if (!d.isClosed) setSelectedDate(d.dateStr);
+                          }}
+                          className={`h-9 rounded-lg border text-xs font-semibold transition flex items-center justify-center ${
+                            d.isClosed
+                              ? 'bg-slate-950 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed'
+                              : isSelected
+                              ? 'bg-blue-600 border-blue-400 text-white'
+                              : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-200'
+                          }`}
+                        >
+                          {d.dayNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-              <div className="text-[10px] text-slate-500 pt-2 border-t border-slate-900">
-                © 2026 Autoboutique Phuket. Crafted for Perfection, Driven by Passion.
-              </div>
-            </footer>
-          </div>
-        )}
-
-        {/* BOTTOM NAVIGATION (Mobile-First 3-Tab Bar for Customers) */}
-        {view === 'customer' && (
-          <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-[#060913]/95 backdrop-blur-md border-t border-slate-800 px-4 py-2 z-40 flex items-center justify-around">
-            <button
-              type="button"
-              onClick={() => setCustomerTab('booking')}
-              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active:scale-90 ${
-                customerTab === 'booking' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Calendar className="w-4 h-4" />
-              <span className="text-[10px]">{isTh ? 'จองคิว' : 'Booking'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCustomerTab('packages')}
-              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active:scale-90 ${
-                customerTab === 'packages' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Ticket className="w-4 h-4" />
-              <span className="text-[10px]">{isTh ? 'แพ็คเกจ' : 'Packages'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCustomerTab('vault')}
-              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition active:scale-90 ${
-                customerTab === 'vault' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Car className="w-4 h-4" />
-              <span className="text-[10px]">{isTh ? 'สถานะสด' : 'Live Status'}</span>
-            </button>
-          </nav>
-        )}
-
-        {/* ==================== ALL MODALS & OVERLAYS ==================== */}
-
-        {/* MODAL 0: BRAND STORY & PHILOSOPHY (Directly from autoboutiqueth.com/#about) */}
-        {aboutModalOpen && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setAboutModalOpen(false);
-            }}
-          >
-            <div className="bg-[#0F172A] border border-blue-500/40 rounded-3xl p-5 w-full max-w-sm text-left space-y-4 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => setAboutModalOpen(false)}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              {/* Studio Header Image */}
-              <div className="rounded-2xl overflow-hidden border border-slate-700/80 relative">
-                <img
-                  src="/c_cube.jpg"
-                  alt="Autoboutique Studio"
-                  className="w-full h-36 object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/carwash.jpg';
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent" />
-                <div className="absolute bottom-2 left-3">
-                  <span className="text-[9px] font-black uppercase text-blue-300 bg-[#060913]/90 px-2 py-0.5 rounded border border-blue-500/40">
-                    Est. 2008 • Phuket
+              {/* Time Slots Selection Matrix */}
+              <div className="space-y-2.5 pt-2 border-t border-slate-800/80">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-300 uppercase tracking-wider">
+                    {isTh ? 'รอบเวลาบริการ (Studio Bay Capacity: 2 ช่องบริการ/รอบ):' : 'Select Time Slot:'}
+                  </span>
+                  <span className="text-[11px] text-blue-400 font-medium">
+                    {formatBookingDate(selectedDate, lang)}
                   </span>
                 </div>
-              </div>
 
-              <div>
-                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">
-                  Autoboutique Overview
-                </span>
-                <h3 className="font-extrabold text-base text-white mt-1 autoboutique-title-bar">
-                  Crafted for Perfection, Driven by Passion
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                  {TIME_SLOTS.map((slot) => {
+                    const lockedKeys = lockedSlots.map((l) => `${l.date}_${l.slot}`);
+                    const avail = getSlotAvailability(selectedDate, slot, bookings, lockedKeys);
+                    const isSelected = bookingTimeSlot === slot;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        disabled={avail.isFull}
+                        onClick={() => setBookingTimeSlot(slot)}
+                        className={`p-3 rounded-xl border text-center transition flex flex-col items-center justify-center ${
+                          avail.isFull
+                            ? 'bg-slate-950/50 border-slate-900 text-slate-600 cursor-not-allowed'
+                            : isSelected
+                            ? 'bg-blue-900/50 border-blue-500 shadow-md shadow-blue-900/30'
+                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-200'
+                        }`}
+                      >
+                        <span className="text-sm font-bold text-white">{slot} น.</span>
+                        <span
+                          className={`text-[10px] mt-1 font-medium px-1.5 py-0.5 rounded-full ${
+                            avail.isFull
+                              ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                              : avail.available === 1
+                              ? 'bg-amber-950/60 text-amber-300 border border-amber-900/50'
+                              : 'bg-emerald-950/60 text-emerald-300 border border-emerald-900/50'
+                          }`}
+                        >
+                          {avail.isFull
+                            ? isTh ? 'เต็มแล้ว' : 'Full'
+                            : isTh
+                            ? `ว่าง ${avail.available} ช่อง`
+                            : `${avail.available} Left`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            {/* STEP 3: CLIENT & VEHICLE PROFILE */}
+            <section className="luxe-panel rounded-2xl p-4 md:p-6 space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
+                <Car className="w-4 h-4 text-blue-400" />
+                <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider">
+                  {isTh ? 'ข้อมูลลูกค้าและรถยนต์' : 'Client & Vehicle Profile'}
                 </h3>
               </div>
 
-              <div className="space-y-3 text-xs text-slate-300 leading-relaxed max-h-[50vh] overflow-y-auto pr-1">
-                <p>
-                  <strong className="text-white">Autoboutique</strong> คือศูนย์บริการดูแล ตกแต่งรถยนต์ ระดับพรีเมียมในจังหวัดภูเก็ต ที่รวมทุกศิลปะของการดูแลรถเข้ากับความหรูหราเข้าด้วยกัน ทุกบริการของเราถูกออกแบบมาเพื่อสะท้อนรสนิยม และเสริมเสน่ห์ให้รถของคุณโดดเด่นในทุกมุมมอง และในทุกๆการขับขี่
-                </p>
-
-                <p>
-                  เริ่มต้นจากความหลงใหลในดูแลตกแต่งรถยนต์ ภายใต้ชื่อเดิม <strong className="text-white">C-Cube Automotive</strong> ซึ่งก่อตั้งขึ้นในปี 2008 และในปี 2024 เรารีแบรนด์เป็น <strong>Autoboutique</strong> เพื่อสะท้อนตัวตนใหม่ที่หรูหรา ทันสมัย และใส่ใจในทุกรายละเอียดมากยิ่งขึ้น
-                </p>
-
-                {/* The Vision Behind the Shine Quote Box */}
-                <div className="bg-[#060913] border-l-4 border-blue-500 p-3 rounded-r-xl space-y-1">
-                  <h4 className="font-bold text-xs text-blue-400">The Vision Behind the Shine</h4>
-                  <p className="text-[11px] text-white italic">
-                    “รถไม่ใช่แค่พาหนะ แต่มันคือความภาคภูมิใจที่ควรได้รับการดูแลอย่างประณีตที่สุด”
-                  </p>
-                  <p className="text-[10px] text-slate-400 italic">
-                    “Beyond a ride — it’s pride, and it deserves perfection.”
-                  </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                {/* Client Full Name */}
+                <div className="space-y-1.5">
+                  <label className="text-slate-300 font-medium">
+                    {isTh ? 'ชื่อ-นามสกุล ผู้ติดต่อ' : 'Client Full Name'}:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isTh ? 'เช่น คุณอัครวัฒน์ ชัยกิตติคุณ' : 'e.g. John Doe'}
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition"
+                  />
                 </div>
 
-                {/* 4 Core Pillars */}
-                <div className="space-y-2 pt-1">
-                  <h4 className="font-bold text-xs text-white">4 เสาหลักแห่งมาตรฐาน Autoboutique:</h4>
-                  <ul className="space-y-1.5 text-[11px] text-slate-300">
-                    <li className="flex items-start gap-1.5">
-                      <Check className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                      <span><strong>Perfection in Every Detail:</strong> ใส่ใจในทุกจุด แม้ในส่วนที่มองไม่เห็น</span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <Check className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                      <span><strong>Premium Personalization:</strong> บริการระดับพรีเมียมปรับให้ตรงกับความต้องการของลูกค้า</span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <Check className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                      <span><strong>Integrity & Trust:</strong> ซื่อสัตย์ จริงใจ บนพื้นฐานของความโปร่งใส</span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <Check className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                      <span><strong>Innovative Craftsmanship:</strong> เลือกใช้วัสดุและเทคโนโลยีที่ดีที่สุด</span>
-                    </li>
-                  </ul>
+                {/* Mobile Number with Auto-formatting and Live Validation */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-300 font-medium">
+                      {isTh ? 'เบอร์โทรศัพท์มือถือ' : 'Mobile Phone'}:
+                    </label>
+                    {formPhone && (
+                      <span className={`text-[10px] font-semibold flex items-center gap-1 ${
+                        isValidThaiPhone(formPhone) ? 'text-emerald-400' : 'text-amber-400'
+                      }`}>
+                        {isValidThaiPhone(formPhone) ? '✓ ถูกต้อง' : '10 หลัก (08X-XXX-XXXX)'}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={12}
+                    placeholder="089-999-8877"
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(formatPhoneInput(e.target.value))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition font-mono"
+                  />
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={() => setAboutModalOpen(false)}
-                className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-md transition active:scale-98"
-              >
-                เข้าใจแล้ว • เข้าสู่หน้าจองคิว
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 1: ENFORCED PromptPay QR Code Modal with Slip Verification Proof */}
-        {promptPayModal.open && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 });
-                setUploadedSlipPreview(null);
-                setSlipVerified(false);
-              }
-            }}
-          >
-            <div className="bg-[#0F172A] border border-blue-500/30 rounded-3xl p-5 w-full max-w-sm text-center space-y-3.5 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 });
-                  setUploadedSlipPreview(null);
-                  setSlipVerified(false);
-                }}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              {/* Official PromptPay Header */}
-              <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white p-2.5 rounded-2xl border border-blue-400/30 flex items-center justify-between px-3">
-                <div className="flex items-center gap-1.5">
-                  <QrCode className="w-4 h-4 text-white" />
-                  <span className="font-extrabold text-[11px] tracking-wider">THAI QR PAYMENT</span>
+                {/* Vehicle Model & License Plate */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-slate-300 font-medium">
+                    {isTh ? 'ยี่ห้อ รุ่น และทะเบียนรถยนต์' : 'Vehicle Model & License Plate'}:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isTh ? 'เช่น BMW M2 Coupe (กข 8888 ภูเก็ต)' : 'e.g. Porsche 911 GT3 (7กง 7777 ภูเก็ต)'}
+                    value={formCar}
+                    onChange={(e) => setFormCar(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition"
+                  />
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-blue-200 font-mono bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-400/30">
-                  <Timer className="w-3 h-3 text-blue-300" />
-                  <span>{formatCountdown(qrCountdown)}</span>
+
+                {/* VIP Pick-up / Delivery Service Toggle */}
+                <div className="sm:col-span-2 pt-1">
+                  <label className="p-3 rounded-xl border border-slate-800 bg-slate-900/60 flex items-center justify-between cursor-pointer hover:border-slate-700 transition">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={vipDelivery}
+                        onChange={(e) => setVipDelivery(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0"
+                      />
+                      <div>
+                        <p className="text-xs font-semibold text-white">
+                          {isTh ? 'ต้องการบริการ รับ-ส่ง รถยนต์ระดับ VIP (Phuket Concierge Delivery)' : 'Request VIP Vehicle Delivery'}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          {isTh ? 'เจ้าหน้าที่จะโทรยืนยันสถานที่รับรถล่วงหน้า 30 นาที' : 'Concierge team will contact for pickup coordination'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-semibold text-blue-400 shrink-0">FREE</span>
+                  </label>
                 </div>
               </div>
+            </section>
 
+            {/* ACTION BAR: PROCEED TO PAYMENT & VERIFICATION */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-blue-950/60 border border-blue-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
-                <h3 className="font-bold text-xs text-slate-300">{promptPayModal.title}</h3>
-                <p className="text-2xl font-black text-blue-400 mt-1">
-                  ฿{promptPayModal.amount.toLocaleString()}
+                <p className="text-xs text-slate-300 font-medium">
+                  {isTh ? 'สรุปยอดนัดหมายเข้ารับบริการ' : 'Appointment Total:'}
                 </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">หจก. ซี-คิวบ์ ออโตโมทีฟ (Autoboutique Phuket)</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl md:text-3xl font-extrabold text-white">฿{currentPrice.toLocaleString()}</span>
+                  <span className="text-xs text-blue-400 font-medium">
+                    {isTh ? '(รวมภาษีและผลิตภัณฑ์สตูดิโอ)' : '(Net Total)'}
+                  </span>
+                </div>
               </div>
 
-              {/* High-Resolution PromptPay QR SVG Graphic */}
-              <div className="bg-white p-3.5 rounded-2xl inline-block shadow-xl border-4 border-slate-100">
-                <svg className="w-40 h-40 text-slate-900" viewBox="0 0 100 100" fill="currentColor">
-                  {/* Outer Frame */}
-                  <rect x="5" y="5" width="25" height="25" fill="#0F172A" />
-                  <rect x="8" y="8" width="19" height="19" fill="#FFFFFF" />
-                  <rect x="12" y="12" width="11" height="11" fill="#0F172A" />
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                {/* If Client has Package Pass, Show Redeem Option */}
+                {customerPackages.some((p) => p.status === 'active' && p.remainingQuota > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const availPkg = customerPackages.find((p) => p.status === 'active' && p.remainingQuota > 0);
+                      if (availPkg) {
+                        handleCompleteBookingPayment('package', availPkg.id);
+                      }
+                    }}
+                    className="flex-1 sm:flex-none px-4 py-3 rounded-xl bg-slate-900 border border-blue-500/40 text-blue-300 hover:text-white hover:bg-slate-800 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                  >
+                    <Ticket className="w-4 h-4 text-blue-400" />
+                    <span>{isTh ? 'ใช้สิทธิ์แพ็คเกจ (฿0)' : 'Redeem Pass'}</span>
+                  </button>
+                )}
 
-                  <rect x="70" y="5" width="25" height="25" fill="#0F172A" />
-                  <rect x="73" y="8" width="19" height="19" fill="#FFFFFF" />
-                  <rect x="77" y="12" width="11" height="11" fill="#0F172A" />
-
-                  <rect x="5" y="70" width="25" height="25" fill="#0F172A" />
-                  <rect x="8" y="73" width="19" height="19" fill="#FFFFFF" />
-                  <rect x="12" y="77" width="11" height="11" fill="#0F172A" />
-
-                  {/* QR Dots Pattern */}
-                  <rect x="35" y="10" width="8" height="8" fill="#0F172A" />
-                  <rect x="50" y="15" width="8" height="8" fill="#0F172A" />
-                  <rect x="40" y="30" width="6" height="6" fill="#0F172A" />
-                  <rect x="60" y="35" width="8" height="8" fill="#0F172A" />
-                  <rect x="45" y="45" width="10" height="10" fill="#1D4ED8" />
-                  <rect x="35" y="60" width="8" height="8" fill="#0F172A" />
-                  <rect x="55" y="65" width="6" height="6" fill="#0F172A" />
-                  <rect x="70" y="70" width="8" height="8" fill="#0F172A" />
-                  <rect x="40" y="80" width="8" height="8" fill="#0F172A" />
-                  <rect x="80" y="85" width="8" height="8" fill="#0F172A" />
-                </svg>
-              </div>
-
-              {/* Copy PromptPay ID */}
-              <div className="flex items-center justify-between bg-[#060913] px-3 py-2 rounded-xl border border-slate-800 text-xs">
-                <span className="text-slate-400">พร้อมเพย์: <strong className="text-white">096-636-9933</strong></span>
                 <button
                   type="button"
                   onClick={() => {
-                    try {
-                      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                        navigator.clipboard.writeText('0966369933');
-                      }
-                    } catch (e) {}
-                    setPromptPayCopied(true);
-                    setToastMessage('📋 คัดลอกเลขพร้อมเพย์เรียบร้อย');
-                    setTimeout(() => {
-                      setPromptPayCopied(false);
-                      setToastMessage(null);
-                    }, 2500);
+                    handleOpenPromptPayModal('booking', isTh ? 'ชำระค่านัดหมายบริการล้างรถ' : 'Studio Detailing Appointment', currentPrice);
                   }}
-                  className="text-blue-400 hover:underline font-bold flex items-center gap-1 text-[11px] active:scale-95 transition"
+                  className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs md:text-sm font-bold shadow-lg shadow-blue-900/40 transition flex items-center justify-center gap-2"
                 >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>{promptPayCopied ? 'คัดลอกแล้ว!' : 'คัดลอก'}</span>
+                  <QrCode className="w-4 h-4" />
+                  <span>{isTh ? 'สแกน QR Code & แนบสลิปจองคิว' : 'Scan PromptPay & Confirm'}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </main>
+        )}
+
+        {/* =========================================================================
+            TAB 2: STUDIO PRIVILEGE PASSES (แพ็คเกจเหมาจ่าย)
+            ========================================================================= */}
+        {view === 'packages' && (
+          <main className="p-4 md:p-6 space-y-6 flex-1">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+              <div className="autoboutique-title-bar">
+                <span className="text-[11px] font-semibold tracking-wider text-blue-400 uppercase">
+                  STUDIO PRIVILEGE PASSES
+                </span>
+                <h2 className="text-lg md:text-xl font-bold text-white tracking-tight">
+                  {isTh ? 'เอกสิทธิ์แพ็คเกจล้างรถเหมาจ่ายสุดคุ้ม' : 'Official Studio Prepaid Wash Passes'}
+                </h2>
+              </div>
+              <span className="text-xs px-2.5 py-1 rounded-full bg-blue-950/80 border border-blue-500/40 text-blue-300 font-semibold">
+                {isTh ? 'ประหยัดสูงสุด ฿1,300' : 'Save up to ฿1,300'}
+              </span>
+            </div>
+
+            {/* Official Package Passes Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {OFFICIAL_PACKAGES.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  className={`luxe-panel rounded-2xl p-5 flex flex-col justify-between relative transition ${
+                    pkg.popular ? 'border-blue-500/50 shadow-xl shadow-blue-950/50' : 'hover:border-slate-700'
+                  }`}
+                >
+                  {pkg.popular && (
+                    <span className="absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow uppercase tracking-wider">
+                      {isTh ? pkg.badgeTh : 'POPULAR'}
+                    </span>
+                  )}
+
+                  <div className="space-y-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-950 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                      <Ticket className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white">
+                        {isTh ? pkg.nameTh : pkg.nameEn}
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {isTh ? pkg.descriptionTh : pkg.descriptionEn}
+                      </p>
+                    </div>
+
+                    <div className="pt-2">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-extrabold text-blue-400 font-sans">
+                          ฿{pkg.price.toLocaleString()}
+                        </span>
+                        <span className="text-xs text-slate-500 line-through">
+                          ฿{(pkg.singlePrice * pkg.totalUses).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-emerald-400 font-medium">
+                        {isTh ? `ประหยัดทันที ฿${pkg.savings.toLocaleString()} บาท` : `Save ฿${pkg.savings}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-800/80 mt-4 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>{isTh ? 'จำนวนครั้งที่ได้รับ' : 'Total Sessions'}:</span>
+                      <span className="text-slate-200 font-bold">{pkg.totalUses} ครั้ง</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>{isTh ? 'อายุการใช้งาน' : 'Validity'}:</span>
+                      <span className="text-slate-200 font-bold">{pkg.validityDays} วัน</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleOpenPromptPayModal('package', isTh ? `ชำระเงิน ${pkg.nameTh}` : pkg.nameEn, pkg.price, pkg.id);
+                      }}
+                      className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>{isTh ? 'ซื้อแพ็คเกจนี้ (PromptPay)' : 'Purchase Pass'}</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Studio 15-Minute Cancellation Policy Notice Card */}
+            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>{isTh ? 'เงื่อนไขและนโยบายการยกเลิกนัดหมาย (Studio Cancellation Terms):' : 'Studio Cancellation Policy:'}</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed pl-6">
+                {isTh
+                  ? '• หากท่านกดยกเลิกนัดหมาย "ภายใน 15 นาที" นับจากเวลาที่ยืนยันจอง ระบบจะคืนสิทธิ์โควตา 1 ครั้งเข้าแพ็คเกจให้โดยอัตโนมัติทันที'
+                  : '• Cancellations made within 15 minutes of booking creation will automatically receive a 100% quota refund back to the pass.'}
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed pl-6">
+                {isTh
+                  ? '• หากยกเลิก "เกิน 15 นาที" จะถือว่าใช้สิทธิ์ 1 ครั้งของแพ็คเกจตามนโยบายรักษาช่องบริการของสตูดิโอ'
+                  : '• Cancellations made after 15 minutes will forfeit 1 package credit per studio bay allocation policy.'}
+              </p>
+            </div>
+
+            {/* Active Customer Passes Section */}
+            <div className="space-y-3 pt-2">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <Ticket className="w-4 h-4 text-blue-400" />
+                <span>{isTh ? 'แพ็คเกจของคุณที่พร้อมใช้งาน (Active Customer Passes)' : 'Your Active Passes'}</span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {customerPackages.map((cp) => (
+                  <div
+                    key={cp.id}
+                    className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-mono text-blue-400 font-semibold">{cp.id}</span>
+                        <h4 className="text-sm font-bold text-white">{isTh ? cp.packageNameTh : cp.packageNameEn}</h4>
+                        <p className="text-[11px] text-slate-400">{cp.customerName} • {cp.phone}</p>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase ${
+                        cp.status === 'active' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {cp.status}
+                      </span>
+                    </div>
+
+                    {/* Quota Progress Bar */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">{isTh ? 'สิทธิ์คงเหลือ' : 'Remaining'}:</span>
+                        <span className="font-bold text-blue-400">{cp.remainingQuota} / {cp.totalQuota} {isTh ? 'ครั้ง' : 'Passes'}</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all duration-500"
+                          style={{ width: `${(cp.remainingQuota / cp.totalQuota) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-slate-500">
+                        {isTh ? `หมดอายุ: ${cp.expiryDate}` : `Exp: ${cp.expiryDate}`}
+                      </span>
+                      {cp.status === 'active' && cp.remainingQuota > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setView('booking');
+                            setToastMessage(isTh ? 'เลือกวันและเวลานัดหมายเพื่อใช้สิทธิ์แพ็คเกจ' : 'Select schedule to redeem pass');
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition"
+                        >
+                          {isTh ? 'ใช้สิทธิ์จองคิวทันที' : 'Use Pass'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </main>
+        )}
+
+        {/* =========================================================================
+            TAB 3: LIVE DETAILING TRACKER (ติดตามสถานะรถสด)
+            ========================================================================= */}
+        {view === 'tracker' && (
+          <main className="p-4 md:p-6 space-y-6 flex-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+              <div className="autoboutique-title-bar">
+                <span className="text-[11px] font-semibold tracking-wider text-blue-400 uppercase">
+                  LIVE DETAILING MONITOR
+                </span>
+                <h2 className="text-lg md:text-xl font-bold text-white tracking-tight">
+                  {isTh ? 'ระบบตรวจสอบสถานะการล้างรถสด' : 'Live Detailing Tracking System'}
+                </h2>
+              </div>
+
+              {/* Vehicle Search / Filter */}
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder={isTh ? 'ค้นหาทะเบียนรถ / รหัสจอง' : 'Search plate or ID...'}
+                  value={trackerSearchTerm}
+                  onChange={(e) => setTrackerSearchTerm(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Active Vehicle Status Card */}
+            {activeCarRecord ? (
+              <div className="space-y-6">
+                <div className="luxe-panel rounded-2xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping" />
+                        <span className="text-xs font-bold text-blue-400 uppercase font-mono">{activeCarRecord.id}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 font-semibold border border-blue-800/60">
+                          {isTh ? 'กำลังดำเนินการ' : 'In Progress'}
+                        </span>
+                      </div>
+                      <h3 className="text-base md:text-lg font-bold text-white mt-1">
+                        {activeCarRecord.carInfo}
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        {activeCarRecord.customerName} • {activeCarRecord.phone}
+                      </p>
+                    </div>
+
+                    <div className="text-left sm:text-right bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                      <p className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'เวลาส่งมอบโดยประมาณ' : 'Estimated Ready'}</p>
+                      <p className="text-lg font-bold text-emerald-400 font-sans">{estimatedCompletionTime} น.</p>
+                      <p className="text-[10px] text-slate-500">{isTh ? 'รอบนัดหมาย' : 'Slot'}: {activeCarRecord.timeSlot} น.</p>
+                    </div>
+                  </div>
+
+                  {/* 5-Stage Visual Progress Bar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400 font-medium">
+                        {isTh ? 'ขั้นตอนปัจจุบัน' : 'Current Stage'}: <strong className="text-white">{activeStageInfo.titleTh}</strong>
+                      </span>
+                      <span className="font-bold text-blue-400">{activeStageNumber} / 5</span>
+                    </div>
+
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {[1, 2, 3, 4, 5].map((st) => (
+                        <div
+                          key={st}
+                          className={`h-2 rounded-full transition-all duration-500 ${
+                            st <= activeStageNumber
+                              ? 'bg-gradient-to-r from-blue-600 to-blue-400 shadow-sm shadow-blue-500/50'
+                              : 'bg-slate-800'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Stage Technical Detail Card */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                    <div className="sm:col-span-1 h-36 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 relative">
+                      <img
+                        src={activeStageInfo.photoUrl}
+                        alt="Stage Detail"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2.5">
+                        <span className="text-[10px] text-slate-300 font-medium">Autoboutique Phuket Bay #1</span>
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2 flex flex-col justify-between space-y-2">
+                      <div>
+                        <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-blue-400" />
+                          <span>{isTh ? activeStageInfo.titleTh : activeStageInfo.titleEn}</span>
+                        </h4>
+                        <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                          {isTh ? activeStageInfo.descTh : activeStageInfo.descEn}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
+                        <button
+                          type="button"
+                          onClick={() => setLastConfirmedBooking(activeCarRecord)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-blue-400" />
+                          <span>{isTh ? 'เปิดใบเสร็จ VIP' : 'View Work Order'}</span>
+                        </button>
+
+                        <a
+                          href={generateGoogleCalendarUrl({
+                            service: activeCarRecord.service,
+                            carInfo: activeCarRecord.carInfo,
+                            date: activeCarRecord.date,
+                            timeSlot: activeCarRecord.timeSlot,
+                          })}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5"
+                        >
+                          <CalendarIcon className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Google Cal</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 rounded-2xl bg-slate-900/40 border border-slate-800 text-center space-y-2">
+                <Car className="w-8 h-8 text-slate-600 mx-auto" />
+                <p className="text-sm text-slate-400">{isTh ? 'ไม่พบคิวรถที่ค้นหา' : 'No matching vehicle found'}</p>
+              </div>
+            )}
+          </main>
+        )}
+
+        {/* =========================================================================
+            TAB 4: EXECUTIVE STUDIO PORTAL (ระบบบริหารจัดการสตูดิโอ)
+            ========================================================================= */}
+        {view === 'admin' && isAdminAuthenticated && (
+          <main className="p-4 md:p-6 space-y-6 flex-1">
+            {/* Executive Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+              <div className="autoboutique-title-bar">
+                <span className="text-[11px] font-semibold tracking-wider text-blue-400 uppercase">
+                  EXECUTIVE PORTAL
+                </span>
+                <h2 className="text-lg md:text-xl font-bold text-white tracking-tight">
+                  {isTh ? 'ระบบบริหารจัดการสตูดิโอและคิวงาน' : 'Studio Management Portal'}
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWalkInModalOpen(true)}
+                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isTh ? '+ ลูกค้า Walk-in (฿500)' : '+ Walk-in'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdminAuthenticated(false);
+                    sessionStorage.removeItem('autoboutique_luxe_admin_auth');
+                    setView('booking');
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white text-xs transition"
+                >
+                  {isTh ? 'ออกจากระบบ' : 'Lock'}
+                </button>
+              </div>
+            </div>
+
+            {/* Daily Financial & Operational KPI Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                  <span>{isTh ? 'รายรับวันนี้' : 'Today Revenue'}</span>
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                </div>
+                <div className="text-lg md:text-xl font-bold text-white font-sans">
+                  ฿{adminMetrics.revenue.toLocaleString()}
+                </div>
+                <p className="text-[10px] text-slate-500">{adminMetrics.totalCount} {isTh ? 'คิวที่ชำระแล้ว' : 'Paid bookings'}</p>
+              </div>
+
+              <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                  <span>{isTh ? 'ส่งมอบแล้ว' : 'Completed'}</span>
+                  <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                </div>
+                <div className="text-lg md:text-xl font-bold text-white font-sans">
+                  {adminMetrics.completed} <span className="text-xs text-slate-400 font-normal">{isTh ? 'คัน' : 'Cars'}</span>
+                </div>
+                <p className="text-[10px] text-slate-500">{isTh ? 'ผ่านการตรวจสภาพ' : 'Inspected'}</p>
+              </div>
+
+              <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                  <span>{isTh ? 'กำลังล้าง' : 'In Bay'}</span>
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                </div>
+                <div className="text-lg md:text-xl font-bold text-white font-sans">
+                  {adminMetrics.inProgress} <span className="text-xs text-slate-400 font-normal">{isTh ? 'ช่อง' : 'Bays'}</span>
+                </div>
+                <p className="text-[10px] text-slate-500">{isTh ? 'กำลังทำงานในช่องล้าง' : 'Active detailing'}</p>
+              </div>
+
+              <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                <div className="flex items-center justify-between text-slate-400 text-[11px]">
+                  <span>{isTh ? 'อัตราครองช่อง' : 'Capacity'}</span>
+                  <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
+                </div>
+                <div className="text-lg md:text-xl font-bold text-white font-sans">
+                  {adminMetrics.capacityPct}%
+                </div>
+                <p className="text-[10px] text-slate-500">2 {isTh ? 'ช่องบริการมาตรฐาน' : 'Bays total'}</p>
+              </div>
+            </div>
+
+            {/* Filter Bar & Date Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={adminSelectedDate}
+                  onChange={(e) => setAdminSelectedDate(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white outline-none focus:border-blue-500"
+                />
+                <span className="text-xs text-slate-400">
+                  {formatBookingDate(adminSelectedDate, lang)}
+                </span>
+              </div>
+
+              {/* Status Filter Chips */}
+              <div className="flex items-center gap-1 overflow-x-auto text-xs">
+                {(['all', 'pending', 'inprogress', 'ready', 'cancelled'] as const).map((fil) => (
+                  <button
+                    key={fil}
+                    type="button"
+                    onClick={() => setAdminBookingFilter(fil)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition shrink-0 ${
+                      adminBookingFilter === fil
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-950 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {fil === 'all'
+                      ? isTh ? 'ทั้งหมด' : 'All'
+                      : fil === 'pending'
+                      ? isTh ? 'รอยืนยัน' : 'Pending'
+                      : fil === 'inprogress'
+                      ? isTh ? 'กำลังล้าง' : 'In Progress'
+                      : fil === 'ready'
+                      ? isTh ? 'พร้อมส่งมอบ' : 'Ready'
+                      : isTh ? 'ยกเลิก' : 'Cancelled'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Admin Bookings Table */}
+            <div className="luxe-panel rounded-2xl overflow-hidden border border-slate-800">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-3.5">{isTh ? 'เวลา' : 'Time'}</th>
+                      <th className="py-3 px-3.5">{isTh ? 'ทะเบียน / รถยนต์' : 'Vehicle'}</th>
+                      <th className="py-3 px-3.5">{isTh ? 'ลูกค้า / ติดต่อ' : 'Client'}</th>
+                      <th className="py-3 px-3.5">{isTh ? 'ยอดชำระ' : 'Amount'}</th>
+                      <th className="py-3 px-3.5">{isTh ? 'สลิปโอน' : 'Slip'}</th>
+                      <th className="py-3 px-3.5">{isTh ? 'สถานะงาน' : 'Stage'}</th>
+                      <th className="py-3 px-3.5 text-right">{isTh ? 'จัดการ' : 'Action'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {adminFilteredBookings.map((b) => (
+                      <tr key={b.id} className="hover:bg-slate-900/40 transition">
+                        <td className="py-3 px-3.5 font-bold text-white whitespace-nowrap">
+                          {b.timeSlot} น.
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <p className="font-semibold text-white whitespace-nowrap">{b.carInfo}</p>
+                          <p className="text-[10px] text-blue-400 font-mono">{b.id}</p>
+                        </td>
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          <p className="text-slate-200">{b.customerName}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">{b.phone}</p>
+                        </td>
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          <span className="font-bold text-emerald-400">
+                            ฿{(b.paidAmount || 0).toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block">
+                            {b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ' : 'PromptPay'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          {b.paymentSlipUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => setViewSlipModalUrl(b.paymentSlipUrl || null)}
+                              className="px-2 py-1 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300 hover:text-white text-[10px] font-semibold transition"
+                            >
+                              {isTh ? '🔍 ดูสลิป' : 'View Slip'}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-500">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          <select
+                            value={b.status}
+                            onChange={(e) => handleUpdateBookingStage(b.id, e.target.value as any)}
+                            className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-white outline-none focus:border-blue-500"
+                          >
+                            <option value="pending">{isTh ? 'รอยืนยัน (Pending)' : 'Pending'}</option>
+                            <option value="step1">{isTh ? 'ขั้น 1: ตรวจสภาพก่อนล้าง' : 'Stage 1: Pre-Inspect'}</option>
+                            <option value="step2">{isTh ? 'ขั้น 2: พ่นโฟม & ล้างช่วงล่าง' : 'Stage 2: Active Foam'}</option>
+                            <option value="step3">{isTh ? 'ขั้น 3: ล้างมือถังคู่ & ซุ้มล้อ' : 'Stage 3: Two-Bucket Hand Wash'}</option>
+                            <option value="step4">{isTh ? 'ขั้น 4: เช็ดแห้ง & เป่าลมไล่น้ำ' : 'Stage 4: Air Blow Dry'}</option>
+                            <option value="ready">{isTh ? 'ขั้น 5: พร้อมส่งมอบรถ' : 'Stage 5: Ready for Handover'}</option>
+                            <option value="cancelled">{isTh ? 'ยกเลิกแล้ว (Cancelled)' : 'Cancelled'}</option>
+                          </select>
+                        </td>
+                        <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setCancelModalBooking(b)}
+                            className="p-1 rounded text-slate-500 hover:text-red-400 transition"
+                            title="Cancel Booking"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {adminFilteredBookings.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
+                          {isTh ? 'ไม่พบคิวการจองในเงื่อนไขนี้' : 'No bookings found'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </main>
+        )}
+
+        {/* =========================================================================
+            PROMPTPAY & SLIP VERIFICATION MODAL
+            ========================================================================= */}
+        {promptPayModal.open && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[92vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div>
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">
+                    EXECUTIVE SETTLEMENT
+                  </span>
+                  <h3 className="text-base font-bold text-white">{promptPayModal.title}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 })}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* ENFORCED SLIP VERIFICATION SECTION (With Drag & Drop) */}
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`bg-[#060913] p-3 rounded-2xl border transition text-left space-y-2 ${
-                  isDragOver ? 'border-blue-400 bg-blue-950/20' : 'border-slate-800'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
-                    <FileCheck className="w-3.5 h-3.5 text-blue-400" />
-                    <span>แนบสลิปเพื่อยืนยันการชำระเงิน</span>
-                  </span>
-                  {slipVerified && (
-                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-800">
-                      ตรวจสอบผ่านแล้ว
-                    </span>
-                  )}
+              {/* Amount & PromptPay Display */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
+                <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-900">
+                  <span>{isTh ? 'เวลาสแกนชำระเงิน' : 'Time Remaining'}:</span>
+                  <span className="font-mono font-bold text-amber-400">{formatTimer(paymentCountdown)}</span>
                 </div>
 
-                {/* Upload Zone */}
+                {/* QR Code Container */}
+                <div className="w-44 h-44 mx-auto bg-white p-2.5 rounded-2xl shadow-lg flex items-center justify-center">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021129370016A000000677010111011300669663699335802TH5405${promptPayModal.amount}.0053037646304`}
+                    alt="PromptPay QR Code"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-2xl font-extrabold text-blue-400 font-sans">
+                    ฿{promptPayModal.amount.toLocaleString()}.00
+                  </span>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {isTh ? 'พร้อมเพย์สตูดิโอ: 096 636 9933 (C-Cube Automotive)' : 'PromptPay: 096 636 9933'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Slip Upload & Verification Area */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                  <span>{isTh ? 'แนบสลิปหลักฐานการโอนเงิน (บังคับ):' : 'Upload Payment Slip (Required):'}</span>
+                  {slipVerified && <span className="text-[10px] text-emerald-400 font-bold">✓ แนบสลิปแล้ว</span>}
+                </label>
+
+                <input
+                  ref={slipFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleProcessSlipFile(e.target.files[0]);
+                  }}
+                  className="hidden"
+                />
+
                 {uploadedSlipPreview ? (
-                  <div className="flex items-center gap-2.5 bg-[#0F172A] p-2 rounded-xl border border-emerald-500/40">
-                    <img
-                      src={uploadedSlipPreview}
-                      alt="slip"
-                      className="w-10 h-10 object-cover rounded-lg border border-slate-700"
-                    />
-                    <div className="flex-1 text-[11px]">
-                      <p className="font-bold text-emerald-400">แนบสลิปสำเร็จ (Slip Attached)</p>
-                      <p className="text-[10px] text-slate-400">ยอดเงิน ฿{promptPayModal.amount.toLocaleString()}</p>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={uploadedSlipPreview}
+                        alt="Slip Preview"
+                        className="w-12 h-14 rounded-lg object-cover border border-slate-700"
+                      />
+                      <div>
+                        <p className="text-xs font-semibold text-white">{isTh ? 'หลักฐานการชำระเงิน' : 'Payment Slip'}</p>
+                        <p className="text-[10px] text-emerald-400 font-medium">
+                          {slipChecking ? (isTh ? 'กำลังตรวจสอบ...' : 'Verifying...') : isTh ? '✓ พร้อมยืนยัน' : '✓ Verified'}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -2678,767 +2121,361 @@ export default function Home() {
                         setUploadedSlipPreview(null);
                         setSlipVerified(false);
                       }}
-                      className="text-slate-400 hover:text-red-400 p-1 active:scale-90"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-900"
                     >
-                      <X className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
-                    {/* Hidden Real File Input */}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleSlipFileUpload}
-                      className="hidden"
-                    />
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isVerifyingSlip}
-                        className="bg-[#0F172A] hover:bg-slate-800 text-slate-200 text-xs font-semibold py-2 px-2.5 rounded-xl border border-slate-700 transition flex items-center justify-center gap-1.5 active:scale-95"
-                      >
-                        <Upload className="w-3.5 h-3.5 text-blue-400" />
-                        <span>อัปโหลดสลิป</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleSimulateSlipUpload}
-                        disabled={isVerifyingSlip}
-                        className="bg-[#0F172A] hover:bg-slate-800 text-blue-300 text-xs font-semibold py-2 px-2.5 rounded-xl border border-blue-500/30 transition flex items-center justify-center gap-1 active:scale-95"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                        <span>สลิปตัวอย่าง</span>
-                      </button>
-                    </div>
-
-                    {isVerifyingSlip && (
-                      <div className="text-center py-1 text-[11px] text-blue-400 animate-pulse font-medium">
-                        ⏳ กำลังตรวจสอบสลิปการโอนเงิน...
-                      </div>
-                    )}
+                  <div
+                    onClick={() => slipFileInputRef.current?.click()}
+                    className="p-4 rounded-xl border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-950/60 cursor-pointer text-center space-y-1 transition"
+                  >
+                    <Upload className="w-5 h-5 text-blue-400 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-200">
+                      {isTh ? 'คลิกหรือลากไฟล์สลิปมาวางที่นี่' : 'Click or Drag Slip Here'}
+                    </p>
+                    <p className="text-[10px] text-slate-500">รองรับไฟล์รูปภาพ PNG, JPG ไม่เกิน 8MB</p>
                   </div>
                 )}
               </div>
 
-              {/* ENFORCED ACTION BUTTON: Disabled if slip is not attached */}
-              {slipVerified ? (
+              {/* Confirm Button (Unlocks ONLY when slip is attached) */}
+              <div className="pt-2">
                 <button
                   type="button"
+                  disabled={!slipVerified}
                   onClick={() => {
                     if (promptPayModal.type === 'booking') {
                       handleCompleteBookingPayment('promptpay');
-                    } else if (promptPayModal.packageDraft) {
-                      handleCompletePackagePayment(promptPayModal.packageDraft);
+                    } else if (promptPayModal.type === 'package' && promptPayModal.pkgId) {
+                      handleCompletePackagePurchase(promptPayModal.pkgId);
                     }
                   }}
-                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold py-3.5 rounded-xl text-xs shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-1.5 active:scale-98"
+                  className={`w-full py-3 rounded-xl font-bold text-xs md:text-sm transition flex items-center justify-center gap-2 ${
+                    slipVerified
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg shadow-blue-900/40 cursor-pointer'
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                  }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>ยืนยันสลิปถูกต้อง & เสร็จสิ้นการจอง</span>
+                  <span>
+                    {!slipVerified
+                      ? isTh ? 'กรุณาแนบสลิปก่อนยืนยัน' : 'Attach Slip to Unlock'
+                      : isTh ? 'ยืนยันการจองคิวและส่งข้อมูล' : 'Confirm & Submit'}
+                  </span>
                 </button>
-              ) : (
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    disabled
-                    className="w-full bg-slate-800 text-slate-500 font-bold py-3.5 rounded-xl text-xs cursor-not-allowed border border-slate-700 flex items-center justify-center gap-1.5 opacity-60"
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span>กรุณาสแกน QR และแนบสลิปโอนเงินก่อนยืนยัน</span>
-                  </button>
-                  <p className="text-[10px] text-slate-500">
-                    *ระบบจะปลดล็อกปุ่มยืนยันทันทีหลังจากท่านอัปโหลดหรือกดสลิปตัวอย่าง
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* MODAL 2: Official Digital Receipt Modal (High-End Printable VIP Detailing Ticket) */}
-        {bookingReceiptModal && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setBookingReceiptModal(null);
-            }}
-          >
-            <div className="bg-[#0F172A] border border-blue-500/30 rounded-3xl p-5 w-full max-w-sm text-left space-y-4 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => setBookingReceiptModal(null)}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close receipt"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="text-center pb-2 border-b border-slate-800">
-                <span className="text-[10px] font-bold text-blue-400 tracking-wider uppercase">
-                  Digital Booking Receipt
-                </span>
-                <h3 className="font-extrabold text-base text-white mt-1">AUTOBOUTIQUE PHUKET</h3>
-                <p className="text-[10px] text-slate-400">หจก. ซี-คิวบ์ ออโตโมทีฟ • โทร 096 636 9933</p>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">รหัสการจอง:</span>
-                  <span className="font-mono font-bold text-blue-400">{bookingReceiptModal.id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">วันและเวลานัดหมาย:</span>
-                  <span className="font-bold text-white">
-                    {bookingReceiptModal.date} ({bookingReceiptModal.timeSlot} น.)
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">ลูกค้า:</span>
-                  <span className="text-slate-200">{bookingReceiptModal.customerName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">รถยนต์:</span>
-                  <span className="font-bold text-white">{bookingReceiptModal.carInfo}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">บริการ:</span>
-                  <span className="text-slate-200">{bookingReceiptModal.service}</span>
-                </div>
-                {bookingReceiptModal.subOption && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">ออปชันเสริม:</span>
-                    <span className="text-blue-300">{bookingReceiptModal.subOption}</span>
-                  </div>
-                )}
-                <div className="flex justify-between pt-2 border-t border-slate-800">
-                  <span className="font-bold text-slate-300">ยอดชำระ:</span>
-                  <span className="font-bold text-emerald-400">
-                    {bookingReceiptModal.paymentMethod === 'package'
-                      ? 'สิทธิ์แพ็คเกจ (฿0)'
-                      : `฿${bookingReceiptModal.paidAmount?.toLocaleString()}`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-2 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="bg-[#060913] hover:bg-slate-800 text-white font-bold py-2 rounded-xl text-xs border border-slate-700 transition flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  <Printer className="w-3.5 h-3.5 text-blue-400" />
-                  <span>พิมพ์ใบเสร็จ</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const text = `🚗 คิวนัดหมาย Autoboutique Phuket\nรหัส: ${bookingReceiptModal.id}\nรถ: ${bookingReceiptModal.carInfo}\nวันที่: ${bookingReceiptModal.date} เวลา ${bookingReceiptModal.timeSlot} น.`;
-                    try {
-                      if (navigator.share) {
-                        navigator.share({ title: 'Autoboutique Booking', text });
-                      } else if (navigator.clipboard) {
-                        navigator.clipboard.writeText(text);
-                        setReceiptCopied(true);
-                        setTimeout(() => setReceiptCopied(false), 2000);
-                      }
-                    } catch (e) {}
-                  }}
-                  className="bg-[#060913] hover:bg-slate-800 text-blue-300 font-bold py-2 rounded-xl text-xs border border-blue-500/30 transition flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  <Share2 className="w-3.5 h-3.5 text-blue-400" />
-                  <span>{receiptCopied ? 'คัดลอกแล้ว!' : 'แชร์คิว'}</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setBookingReceiptModal(null)}
-                className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs transition active:scale-98"
-              >
-                ปิดหน้าต่าง
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 3: Admin Security PIN Modal */}
+        {/* =========================================================================
+            ADMIN PIN MODAL
+            ========================================================================= */}
         {adminPinModalOpen && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setAdminPinModalOpen(false);
-                setPinInput('');
-                setPinError(false);
-              }
-            }}
-          >
-            <div className="bg-[#0F172A] border border-blue-500/30 rounded-3xl p-5 w-full max-w-xs text-center space-y-4 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setAdminPinModalOpen(false);
-                  setPinInput('');
-                  setPinError(false);
-                }}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close PIN modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div className="w-10 h-10 rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/30">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="luxe-panel rounded-2xl w-full max-w-sm p-5 space-y-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-blue-950 border border-blue-500/40 flex items-center justify-center mx-auto text-blue-400">
                 <Lock className="w-5 h-5" />
               </div>
-
               <div>
-                <h3 className="font-bold text-sm text-white">Admin Security Access</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">กรุณาใส่รหัส PIN 4 หลักเพื่อเข้าหลังบ้าน</p>
-              </div>
-
-              {/* PIN bullets */}
-              <div className="flex justify-center gap-3 py-1">
-                {[0, 1, 2, 3].map((idx) => (
-                  <div
-                    key={idx}
-                    className={`w-3.5 h-3.5 rounded-full border transition ${
-                      pinInput.length > idx
-                        ? 'bg-blue-500 border-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.6)]'
-                        : 'bg-[#060913] border-slate-800'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {pinError && (
-                <p className="text-red-400 text-xs font-semibold animate-shake">
-                  รหัส PIN ไม่ถูกต้อง (ลอง 1234 หรือ 8888)
+                <h3 className="text-base font-bold text-white">{isTh ? 'ระบบบริหารจัดการสตูดิโอ' : 'Executive Studio Auth'}</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isTh ? 'กรุณากรอกรหัส PIN ผู้ดูแลระบบ (1234 หรือ 8888)' : 'Enter 4-digit security PIN'}
                 </p>
-              )}
-
-              {/* Keypad */}
-              <div className="grid grid-cols-3 gap-2 pt-2">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '➔'].map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      if (key === 'C') {
-                        setPinInput('');
-                        setPinError(false);
-                      } else if (key === '➔') {
-                        handlePinSubmit();
-                      } else if (pinInput.length < 4) {
-                        const next = pinInput + key;
-                        setPinInput(next);
-                        if (next.length === 4) {
-                          if (verifyAdminPin(next)) {
-                            setIsAdminAuthenticated(true);
-                            if (typeof window !== 'undefined') {
-                              sessionStorage.setItem('autoboutique_luxe_admin_auth', 'true');
-                            }
-                            setAdminPinModalOpen(false);
-                            setPinInput('');
-                            setPinError(false);
-                            setView('admin');
-                          } else {
-                            setPinError(true);
-                            setPinInput('');
-                          }
-                        }
-                      }
-                    }}
-                    className="h-11 rounded-xl bg-[#060913] border border-slate-800 hover:border-blue-500/40 text-white font-bold text-sm transition active:scale-95"
-                  >
-                    {key}
-                  </button>
-                ))}
               </div>
+
+              <form onSubmit={handlePinSubmit} className="space-y-3">
+                <input
+                  type="password"
+                  maxLength={4}
+                  autoFocus
+                  value={pinInput}
+                  onChange={(e) => {
+                    setPinInput(e.target.value);
+                    setPinError(false);
+                  }}
+                  className="w-36 mx-auto px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-center text-xl font-mono tracking-widest text-white outline-none focus:border-blue-500"
+                />
+                {pinError && (
+                  <p className="text-[11px] text-red-400 font-medium">{isTh ? 'รหัส PIN ไม่ถูกต้อง' : 'Incorrect PIN'}</p>
+                )}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdminPinModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold"
+                  >
+                    {isTh ? 'ยกเลิก' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold"
+                  >
+                    {isTh ? 'เข้าสู่ระบบ' : 'Unlock'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
 
-        {/* MODAL 4: Cancel Booking Modal with 15-Minute Policy Protection */}
-        {cancelModalBooking && (() => {
-          const policy = checkCancellationPackagePolicy(cancelModalBooking);
-          return (
-            <div
-              role="dialog"
-              aria-modal="true"
-              className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setCancelModalBooking(null);
-              }}
-            >
-              <div className="bg-[#0F172A] border border-slate-800 rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative text-left animate-in fade-in zoom-in-95 duration-200">
+        {/* =========================================================================
+            ADMIN WALK-IN MODAL
+            ========================================================================= */}
+        {walkInModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 className="text-base font-bold text-white">
+                  {isTh ? 'บันทึกคิวลูกค้า Walk-in (฿500)' : 'New Walk-in Reception'}
+                </h3>
                 <button
                   type="button"
-                  onClick={() => setCancelModalBooking(null)}
-                  className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                  aria-label="Close cancel modal"
+                  onClick={() => setWalkInModalOpen(false)}
+                  className="p-1 rounded text-slate-400 hover:text-white"
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
 
+              <div className="space-y-3 text-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20">
-                    ยืนยันการยกเลิกคิว
-                  </span>
-                  <h3 className="font-bold text-base text-white mt-1.5">
-                    ยกเลิกคิว {cancelModalBooking.id}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {cancelModalBooking.customerName} • {cancelModalBooking.carInfo}
-                  </p>
+                  <label className="text-slate-300 block mb-1">{isTh ? 'ชื่อลูกค้า' : 'Client Name'}:</label>
+                  <input
+                    type="text"
+                    value={walkInName}
+                    onChange={(e) => setWalkInName(e.target.value)}
+                    placeholder="เช่น คุณอัครวัฒน์"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500"
+                  />
                 </div>
+                <div>
+                  <label className="text-slate-300 block mb-1">{isTh ? 'เบอร์โทรศัพท์' : 'Phone'}:</label>
+                  <input
+                    type="tel"
+                    value={walkInPhone}
+                    onChange={(e) => setWalkInPhone(formatPhoneInput(e.target.value))}
+                    placeholder="089-999-8877"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-300 block mb-1">{isTh ? 'รุ่นและทะเบียนรถ' : 'Vehicle Plate'}:</label>
+                  <input
+                    type="text"
+                    value={walkInCar}
+                    onChange={(e) => setWalkInCar(e.target.value)}
+                    placeholder="เช่น Porsche 911 (7กง 7777)"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
 
-                {policy.isPackageBooking && (
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setWalkInModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold"
+                >
+                  {isTh ? 'ยกเลิก' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateWalkIn}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold"
+                >
+                  {isTh ? 'บันทึกคิว (฿500)' : 'Save Walk-in'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            CANCEL BOOKING CONFIRMATION MODAL (15-MIN RULE ENFORCED)
+            ========================================================================= */}
+        {cancelModalBooking && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4">
+              <div className="flex items-center gap-2.5 text-amber-400">
+                <ShieldAlert className="w-5 h-5 shrink-0" />
+                <h3 className="text-base font-bold text-white">{isTh ? 'ยืนยันการยกเลิกนัดหมาย' : 'Cancel Appointment'}</h3>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
+                <p className="text-slate-200 font-bold">{cancelModalBooking.carInfo}</p>
+                <p className="text-slate-400">รหัส: {cancelModalBooking.id} • {cancelModalBooking.customerName}</p>
+                <p className="text-blue-400 font-semibold">{cancelModalBooking.date} เวลา {cancelModalBooking.timeSlot} น.</p>
+              </div>
+
+              {/* 15-Minute Policy Evaluation Output */}
+              {(() => {
+                const policy = checkCancellationPackagePolicy(cancelModalBooking);
+                return (
                   <div
                     className={`p-3 rounded-xl border text-xs leading-relaxed ${
                       policy.willRefundQuota
-                        ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300'
-                        : 'bg-blue-950/40 border-blue-800 text-blue-300'
+                        ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                        : 'bg-red-950/40 border-red-800/60 text-red-300'
                     }`}
                   >
-                    <p className="font-bold mb-1">
-                      {policy.willRefundQuota ? '✅ คืนโควตาแพ็คเกจ 1 ครั้ง' : '⚠️ หักสิทธิ์ตามกฎระเบียบ 15 นาที'}
-                    </p>
-                    <p className="text-[11px]">{policy.messageTh}</p>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setCancelModalBooking(null)}
-                    className="flex-1 bg-[#060913] hover:bg-slate-800 text-slate-300 font-bold py-2.5 rounded-xl text-xs border border-slate-700 transition active:scale-95"
-                  >
-                    ย้อนกลับ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmCancelBooking}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl text-xs transition active:scale-95"
-                  >
-                    ยืนยันยกเลิก
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* MODAL 5: Walk-in Modal for Admin (Flat ฿500 Rate) */}
-        {walkInModalOpen && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setWalkInModalOpen(false);
-            }}
-          >
-            <div className="bg-[#0F172A] border border-slate-800 rounded-3xl p-5 w-full max-w-sm space-y-3.5 shadow-2xl relative text-left animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => setWalkInModalOpen(false)}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close walk-in modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div>
-                <span className="text-[10px] font-bold text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-500/30">
-                  Admin Intake
-                </span>
-                <h3 className="font-bold text-sm text-white mt-1">รับรถ Walk-in หน้าร้าน (฿500)</h3>
-              </div>
-
-              <input
-                type="text"
-                value={walkInName}
-                onChange={(e) => setWalkInName(e.target.value)}
-                placeholder="ชื่อลูกค้า"
-                className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl outline-none focus:border-blue-500"
-              />
-
-              <input
-                type="text"
-                value={walkInCar}
-                onChange={(e) => setWalkInCar(e.target.value.toUpperCase())}
-                placeholder="ข้อมูลรถ / ทะเบียน (เช่น Porsche 911 กข 9999)"
-                className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl outline-none focus:border-blue-500 uppercase"
-              />
-
-              <select
-                value={walkInTime}
-                onChange={(e) => setWalkInTime(e.target.value)}
-                className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2.5 rounded-xl outline-none focus:border-blue-500"
-              >
-                {TIME_SLOTS.map((t) => (
-                  <option key={t} value={t}>
-                    รอบ {t} น.
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={handleCreateWalkIn}
-                className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white font-extrabold py-2.5 rounded-xl text-xs transition shadow-md active:scale-98"
-              >
-                บันทึกคิว Walk-in ทันที (฿500)
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 6: Admin Issue New Customer Package Modal */}
-        {adminNewPackageModalOpen && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setAdminNewPackageModalOpen(false);
-            }}
-          >
-            <div className="bg-[#0F172A] border border-slate-800 rounded-3xl p-5 w-full max-w-sm space-y-3.5 shadow-2xl relative text-left animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => setAdminNewPackageModalOpen(false)}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close package modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div>
-                <span className="text-[10px] font-bold text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-500/30">
-                  Admin Package Issuer
-                </span>
-                <h3 className="font-bold text-sm text-white mt-1">ออกแพ็คเกจใหม่ให้ลูกค้า</h3>
-              </div>
-
-              <select
-                value={newPkgSelectedDealId}
-                onChange={(e) => setNewPkgSelectedDealId(e.target.value)}
-                className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2 rounded-xl outline-none focus:border-blue-500"
-              >
-                {OFFICIAL_PACKAGES.map((deal) => (
-                  <option key={deal.id} value={deal.id}>
-                    {deal.nameTh} - ฿{deal.price.toLocaleString()}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="text"
-                value={newPkgCustomerName}
-                onChange={(e) => setNewPkgCustomerName(e.target.value)}
-                placeholder="ชื่อลูกค้า"
-                className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2 rounded-xl outline-none focus:border-blue-500"
-              />
-
-              <input
-                type="tel"
-                value={newPkgPhone}
-                onChange={(e) => setNewPkgPhone(formatPhoneInput(e.target.value))}
-                placeholder="เบอร์โทรศัพท์ (08X-XXX-XXXX)"
-                className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2 rounded-xl outline-none focus:border-blue-500"
-              />
-
-              <input
-                type="text"
-                value={newPkgCar}
-                onChange={(e) => setNewPkgCar(e.target.value.toUpperCase())}
-                placeholder="รถยนต์ / ทะเบียน"
-                className="w-full bg-[#060913] border border-slate-800 text-white text-xs px-3 py-2 rounded-xl outline-none focus:border-blue-500 uppercase"
-              />
-
-              <button
-                type="button"
-                onClick={handleAdminIssueNewPackage}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition active:scale-98"
-              >
-                ออกแพ็คเกจให้ลูกค้าทันที
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 7: Lock Slot Modal */}
-        {lockSlotModalOpen && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setLockSlotModalOpen(false);
-            }}
-          >
-            <div className="bg-[#0F172A] border border-slate-800 rounded-3xl p-5 w-full max-w-sm space-y-3.5 shadow-2xl relative text-left animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => setLockSlotModalOpen(false)}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close lock slot modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div>
-                <span className="text-[10px] font-bold text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-500/30">
-                  Capacity Manager
-                </span>
-                <h3 className="font-bold text-sm text-white mt-1">ล็อกช่องเวลา (ปิดปรับปรุง)</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">วันที่: {adminSelectedDate}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {TIME_SLOTS.map((slot) => {
-                  const key = `${adminSelectedDate}_${slot}`;
-                  const isLocked = lockedSlots.includes(key);
-                  return (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => {
-                        setLockedSlots((prev) =>
-                          isLocked ? prev.filter((k) => k !== key) : [...prev, key]
-                        );
-                      }}
-                      className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between active:scale-95 ${
-                        isLocked
-                          ? 'bg-red-500/20 border-red-500/40 text-red-300'
-                          : 'bg-[#060913] border-slate-800 text-slate-300 hover:border-slate-700'
-                      }`}
-                    >
-                      <span>{slot} น.</span>
-                      {isLocked ? <Lock className="w-3.5 h-3.5 text-red-400" /> : <Unlock className="w-3.5 h-3.5 text-slate-500" />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setLockSlotModalOpen(false)}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold py-2.5 rounded-xl text-xs transition active:scale-98"
-              >
-                เสร็จสิ้น
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 8: Photo Lightbox Modal */}
-        {lightboxData.open && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setLightboxData({ open: false, title: '', caption: '', url: '' });
-            }}
-          >
-            <div className="max-w-md w-full space-y-3 relative text-left animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => setLightboxData({ open: false, title: '', caption: '', url: '' })}
-                className="absolute right-0 -top-8 text-white/80 hover:text-white"
-                aria-label="Close lightbox"
-              >
-                <X className="w-6 h-6" />
-              </button>
-
-              <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl">
-                <img src={lightboxData.url} alt="lightbox" className="w-full h-auto max-h-[70vh] object-contain" />
-              </div>
-
-              <div className="bg-[#0F172A] border border-slate-800 p-3 rounded-xl text-xs">
-                <h4 className="font-bold text-white">{lightboxData.title}</h4>
-                <p className="text-slate-400 text-[11px] mt-0.5">{lightboxData.caption}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 9: Service Showcase Modal (ดูตัวอย่างงาน) */}
-        {showcaseModalOpen && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setShowcaseModalOpen(false);
-            }}
-          >
-            <div className="bg-[#0F172A] border border-blue-500/30 rounded-3xl p-5 w-full max-w-sm space-y-3.5 shadow-2xl relative text-left animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => setShowcaseModalOpen(false)}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close showcase"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div>
-                <span className="text-[10px] font-bold text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-500/30">
-                  Showcase Gallery
-                </span>
-                <h3 className="font-bold text-sm text-white mt-1">
-                  {isTh ? currentShowcase.titleTh : currentShowcase.titleEn}
-                </h3>
-              </div>
-
-              <div className="space-y-1.5 text-xs text-slate-300">
-                {(isTh ? currentShowcase.highlightsTh : currentShowcase.highlightsEn).map((hl, i) => (
-                  <div key={i} className="flex items-start gap-1.5">
-                    <Check className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-                    <span>{hl}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                {currentShowcase.images.map((img, idx) => (
-                  <div key={idx} className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950">
-                    <img src={img.url} alt="showcase" className="w-full h-24 object-cover" />
-                    <p className="p-1.5 text-[9px] text-slate-400 truncate">
-                      {isTh ? img.captionTh : img.captionEn}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowcaseModalOpen(false)}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-extrabold py-2.5 rounded-xl text-xs transition active:scale-98"
-              >
-                ปิดหน้าต่าง
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* MODAL 10: Advance Calendar Modal (6 Months Jump) */}
-        {calendarModalOpen && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setCalendarModalOpen(false);
-            }}
-          >
-            <div className="bg-[#0F172A] border border-blue-500/30 rounded-3xl p-5 w-full max-w-sm space-y-3.5 shadow-2xl relative text-left animate-in fade-in zoom-in-95 duration-200">
-              <button
-                type="button"
-                onClick={() => setCalendarModalOpen(false)}
-                className="absolute right-4 top-4 text-slate-400 hover:text-white"
-                aria-label="Close calendar modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
-              <div>
-                <span className="text-[10px] font-bold text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-500/30">
-                  Advance Schedule
-                </span>
-                <h3 className="font-bold text-sm text-white mt-1">เลือกวันนัดหมายล่วงหน้า</h3>
-              </div>
-
-              {/* Month Selector Pills */}
-              <div className="flex flex-wrap gap-1 text-[11px]">
-                {ADVANCE_MONTHS.map((m) => (
-                  <button
-                    key={m.key}
-                    type="button"
-                    onClick={() => setCalendarModalMonth({ year: m.year, month: m.month })}
-                    className={`px-2.5 py-1 rounded-lg border transition active:scale-95 ${
-                      calendarModalMonth.year === m.year && calendarModalMonth.month === m.month
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-400 font-extrabold'
-                        : 'bg-[#060913] text-slate-400 border-slate-800 hover:text-white'
-                    }`}
-                  >
-                    {isTh ? m.shortTh : m.shortEn}
-                  </button>
-                ))}
-              </div>
-
-              {/* Days Grid */}
-              {(() => {
-                const { days, startOffset } = getCalendarDaysForMonth(
-                  calendarModalMonth.year,
-                  calendarModalMonth.month
-                );
-                return (
-                  <div>
-                    <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-400 font-bold mb-1">
-                      <span>จ.</span>
-                      <span>อ.</span>
-                      <span>พ.</span>
-                      <span>พฤ.</span>
-                      <span>ศ.</span>
-                      <span>ส.</span>
-                      <span className="text-red-400">อา.</span>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                      {Array.from({ length: startOffset }).map((_, i) => (
-                        <div key={`empty-${i}`} />
-                      ))}
-                      {days.map((d) => (
-                        <button
-                          key={d.dateStr}
-                          type="button"
-                          disabled={d.isClosed || d.isPast}
-                          onClick={() => {
-                            setSelectedDate(d.dateStr);
-                            setCalendarModalOpen(false);
-                            setToastMessage(`📅 เลือกวันที่ ${d.dateStr} เรียบร้อย`);
-                            setTimeout(() => setToastMessage(null), 2500);
-                          }}
-                          className={`p-1.5 rounded-lg border transition text-center active:scale-95 ${
-                            d.isClosed || d.isPast
-                              ? 'opacity-30 border-slate-900 cursor-not-allowed text-slate-600'
-                              : selectedDate === d.dateStr
-                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 border-blue-400 text-white font-extrabold'
-                              : 'bg-[#060913] border-slate-800 text-slate-300 hover:border-slate-700'
-                          }`}
-                        >
-                          {d.dayNum}
-                        </button>
-                      ))}
-                    </div>
+                    <p className="font-semibold">{isTh ? 'ผลการตรวจสอบตามนโยบายสตูดิโอ:' : 'Studio Policy Check:'}</p>
+                    <p className="mt-1">{isTh ? policy.messageTh : policy.messageEn}</p>
                   </div>
                 );
               })()}
 
-              <button
-                type="button"
-                onClick={() => setCalendarModalOpen(false)}
-                className="w-full bg-[#060913] hover:bg-slate-800 text-white font-bold py-2 rounded-xl text-xs border border-slate-700 transition active:scale-98"
-              >
-                ปิด
-              </button>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setCancelModalBooking(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold"
+                >
+                  {isTh ? 'ปิดหน้าต่าง' : 'Dismiss'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCancelBooking}
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold"
+                >
+                  {isTh ? 'ยืนยันยกเลิกคิว' : 'Confirm Cancel'}
+                </button>
+              </div>
             </div>
           </div>
         )}
 
+        {/* =========================================================================
+            SLIP INSPECTION MODAL
+            ========================================================================= */}
+        {viewSlipModalUrl && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+            <div className="luxe-panel rounded-2xl w-full max-w-sm p-4 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span className="text-xs font-bold text-white">{isTh ? 'ตรวจสอบสลิปโอนเงิน' : 'Payment Slip Inspection'}</span>
+                <button
+                  type="button"
+                  onClick={() => setViewSlipModalUrl(null)}
+                  className="p-1 rounded text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="w-full max-h-[70vh] overflow-y-auto rounded-xl bg-black border border-slate-800 flex items-center justify-center">
+                <img src={viewSlipModalUrl} alt="Bank Slip" className="w-full object-contain" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            PRINTABLE VIP WORK ORDER & RECEIPT MODAL
+            ========================================================================= */}
+        {lastConfirmedBooking && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[92vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <CheckCheck className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-base font-bold text-white">{isTh ? 'ใบเสร็จรับเงินสตูดิโอ (VIP Work Order)' : 'Studio Detailing Receipt'}</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLastConfirmedBooking(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Printable Invoice Card */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
+                <div className="text-center pb-3 border-b border-slate-900">
+                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">AUTOBOUTIQUE PHUKET</h4>
+                  <p className="text-[10px] text-slate-400">Operated by C-Cube Automotive (Since 2008)</p>
+                  <p className="text-[10px] text-blue-400 font-mono mt-1">NO: {lastConfirmedBooking.id}</p>
+                </div>
+
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">{isTh ? 'ลูกค้า' : 'Client'}:</span>
+                    <span className="text-white font-semibold">{lastConfirmedBooking.customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">{isTh ? 'เบอร์ติดต่อ' : 'Phone'}:</span>
+                    <span className="text-white font-mono">{lastConfirmedBooking.phone}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">{isTh ? 'ยานยนต์' : 'Vehicle'}:</span>
+                    <span className="text-white font-semibold">{lastConfirmedBooking.carInfo}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">{isTh ? 'วันเวลานัดหมาย' : 'Appointment'}:</span>
+                    <span className="text-blue-400 font-semibold">{lastConfirmedBooking.date} ({lastConfirmedBooking.timeSlot} น.)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">{isTh ? 'บริการ' : 'Service'}:</span>
+                    <span className="text-white text-right max-w-[200px]">{lastConfirmedBooking.service}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-900 flex justify-between items-baseline text-sm">
+                  <span className="font-bold text-slate-300">{isTh ? 'ยอดชำระสุทธิ' : 'Total Paid'}:</span>
+                  <span className="text-lg font-extrabold text-blue-400 font-sans">
+                    ฿{(lastConfirmedBooking.paidAmount || 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>{isTh ? 'พิมพ์ใบเสร็จ' : 'Print'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `Autoboutique Detailing Work Order #${lastConfirmedBooking.id} | ${lastConfirmedBooking.carInfo} | ${lastConfirmedBooking.date} ${lastConfirmedBooking.timeSlot} น.`
+                    );
+                    setToastMessage(isTh ? 'คัดลอกข้อมูลใบเสร็จเรียบร้อย' : 'Copied to clipboard');
+                    setTimeout(() => setToastMessage(null), 2500);
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>{isTh ? 'แชร์ / คัดลอก' : 'Share'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            STUDIO FOOTER
+            ========================================================================= */}
+        <footer className="mt-auto border-t border-slate-900 bg-[#060913] p-4 md:p-6 text-center text-xs text-slate-500 space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <span className="font-bold text-slate-300 tracking-wider uppercase font-sans">Autoboutique Phuket</span>
+            <span>•</span>
+            <span>C-Cube Automotive Co., Ltd.</span>
+          </div>
+          <p className="text-[11px] text-slate-600">
+            {isTh
+              ? 'สตูดิโอดีเทลลิ่ง ล้างสี ดูดฝุ่น เคลือบแก้วเซรามิก และฟิล์มใสกันรอย PPF มาตรฐานสากลแห่งภูเก็ต'
+              : 'Premier Automotive Detailing, Ceramic Coatings, and Paint Protection Film Studio in Phuket.'}
+          </p>
+          <p className="text-[10px] text-slate-700 font-mono">
+            © 2008 - 2026 Autoboutique Phuket. All Rights Reserved.
+          </p>
+        </footer>
       </div>
     </div>
   );

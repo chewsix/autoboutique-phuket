@@ -9,15 +9,15 @@
   --autoboutique-sapphire: #1D4ED8;
   --autoboutique-cobalt: #3B82F6;
   --autoboutique-ice: #60A5FA;
-  --autoboutique-dark: #060913;
+  --autoboutique-dark: #080C14;
   --autoboutique-card: #0F172A;
-  --autoboutique-card-border: rgba(59, 130, 246, 0.25);
+  --autoboutique-card-border: rgba(59, 130, 246, 0.22);
   --autoboutique-heading: #1E3A8A;
 }
 
 body {
   color: #F8FAFC;
-  background-color: #060913;
+  background-color: #080C14;
   font-family: 'Prompt', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -25,21 +25,38 @@ body {
 
 /* Custom Luxury Blue Scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #060913;
+  background: #080C14;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.3);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.7);
+  background: rgba(59, 130, 246, 0.65);
 }
 
-/* Signature Autoboutique Heading Decoration in Luxury Royal Sapphire */
+/* Executive Studio Card Styling */
+.luxe-panel {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(10, 15, 30, 0.94) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.luxe-panel-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.luxe-panel-hover:hover {
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 14px 40px -12px rgba(37, 99, 235, 0.22);
+  transform: translateY(-2px);
+}
+
+/* Signature Title Accent */
 .autoboutique-title-bar {
   position: relative;
   padding-left: 14px;
@@ -50,8 +67,16 @@ body {
   left: 0;
   top: 15%;
   height: 70%;
-  width: 4px;
+  width: 3.5px;
   background: linear-gradient(180deg, #60A5FA 0%, #2563EB 50%, #1D4ED8 100%);
   border-radius: 9999px;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+}
+
+/* Subtle Ambient Gradient Background */
+.ambient-cobalt-glow {
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 100% 30%, rgba(29, 78, 216, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 0% 70%, rgba(30, 58, 138, 0.08) 0%, transparent 50%);
 }
