@@ -87,6 +87,14 @@ import {
   ServiceType,
   Language,
 } from '@/utils/bookingLogic';
+import {
+  isSupabaseConfigured,
+  fetchRemoteBookings,
+  upsertRemoteBooking,
+  updateRemoteBookingStatus,
+  fetchRemotePackages,
+  upsertRemotePackage,
+} from '@/utils/supabaseClient';
 
 // Initial Realistic Car Wash Bookings (Flat ฿500 Base Rate - No Car Size Matrix)
 const INITIAL_BOOKINGS: BookingRecord[] = [
@@ -375,6 +383,55 @@ export default function Home() {
             setCustomerPackages(parsedPackages);
           }
         }
+
+        // Live Supabase Cloud Sync (if configured)
+        if (isSupabaseConfigured()) {
+          fetchRemoteBookings().then((remoteData) => {
+            if (remoteData && remoteData.length > 0) {
+              const mapped: BookingRecord[] = remoteData.map((b: any) => ({
+                id: b.id,
+                timeSlot: b.time_slot,
+                customerName: b.customer_name,
+                phone: b.phone,
+                carInfo: b.license_plate,
+                serviceKey: 'wash',
+                service: b.service_name || 'ล้างรถพรีเมียม & คลีนภายใน',
+                subOptionId: b.sub_option ? 'custom' : 'standard',
+                subOption: b.sub_option || 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน',
+                date: b.booking_date,
+                status: b.status === 'confirmed' ? 'step1' : b.status === 'washing' ? 'step2' : b.status === 'detailing' ? 'step3' : b.status === 'drying' ? 'step4' : b.status === 'ready' ? 'step5' : (b.status || 'pending'),
+                createdAt: b.created_at || new Date().toISOString(),
+                paidAmount: Number(b.total_price) || 500,
+                paymentMethod: b.payment_method || 'promptpay',
+                paymentStatus: 'paid',
+                paymentSlipUrl: b.slip_url || undefined,
+              }));
+              setBookings(mapped);
+            }
+          });
+
+          fetchRemotePackages().then((remotePkgs) => {
+            if (remotePkgs && remotePkgs.length > 0) {
+              const mappedPkgs: CustomerPackage[] = remotePkgs.map((p: any) => ({
+                id: p.id,
+                packageId: p.package_id || 'pkg-wash-12',
+                serviceKey: 'wash',
+                packageNameTh: p.package_name || 'Super Wash Pass (12 ครั้ง)',
+                packageNameEn: p.package_name || 'Super Wash Pass (12 Passes)',
+                customerName: p.customer_name || 'VIP Member',
+                phone: p.customer_phone || '',
+                carInfo: p.car_info || 'ไม่ระบุทะเบียน',
+                totalQuota: p.total_quota || 12,
+                remainingQuota: p.remaining_quota ?? ((p.total_quota || 12) - (p.used_quota || 0)),
+                purchaseDate: p.purchased_date || new Date().toISOString(),
+                expiryDate: '2027-12-31',
+                status: (p.status as any) || 'active',
+                pricePaid: Number(p.price) || 5000,
+              }));
+              setCustomerPackages(mappedPkgs);
+            }
+          });
+        }
       }
     } catch (e) {
       console.warn('LocalStorage load error:', e);
@@ -607,6 +664,22 @@ export default function Home() {
       stageNumber: 1,
     });
 
+    // Sync to Cloud Database (Supabase) if configured
+    upsertRemoteBooking({
+      id: newRecord.id,
+      customerName: newRecord.customerName,
+      phone: newRecord.phone,
+      licensePlate: newRecord.carInfo,
+      serviceName: newRecord.service,
+      subOption: newRecord.subOption,
+      bookingDate: newRecord.date,
+      timeSlot: newRecord.timeSlot,
+      totalPrice: newRecord.paidAmount,
+      paymentMethod: newRecord.paymentMethod,
+      slipUrl: newRecord.paymentSlipUrl,
+      status: 'confirmed',
+    });
+
     setToastMessage(
       isTh
         ? `✅ จองคิวล้างรถสำเร็จ! รหัส ${newBookingId} ส่งข้อความยืนยันทาง LINE เรียบร้อย`
@@ -703,6 +776,9 @@ export default function Home() {
         stageNumber: stageNum,
         stagePhotoUrl: stageInfo.photoUrl,
       });
+
+      // Sync updated stage to Supabase
+      updateRemoteBookingStatus(id, newStatus);
     }
 
     setToastMessage(
@@ -740,6 +816,19 @@ export default function Home() {
     };
 
     setBookings((prev) => [newRecord, ...prev]);
+    upsertRemoteBooking({
+      id: newRecord.id,
+      customerName: newRecord.customerName,
+      phone: newRecord.phone,
+      licensePlate: newRecord.carInfo,
+      serviceName: newRecord.service,
+      subOption: newRecord.subOption,
+      bookingDate: newRecord.date,
+      timeSlot: newRecord.timeSlot,
+      totalPrice: newRecord.paidAmount,
+      paymentMethod: newRecord.paymentMethod,
+      status: 'washing',
+    });
     setWalkInModalOpen(false);
     setWalkInName('');
     setWalkInPhone('');
@@ -773,6 +862,7 @@ export default function Home() {
     }
 
     setBookings((prev) => prev.filter((b) => b.id !== cancelModalBooking.id));
+    updateRemoteBookingStatus(cancelModalBooking.id, 'cancelled');
     setCancelModalBooking(null);
 
     setToastMessage(
