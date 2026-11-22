@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --autoboutique-blue: #2563EB;
+  --autoboutique-sapphire: #1D4ED8;
+  --autoboutique-cobalt: #3B82F6;
+  --autoboutique-ice: #60A5FA;
+  --autoboutique-dark: #060913;
+  --autoboutique-card: #0F172A;
+  --autoboutique-card-border: rgba(59, 130, 246, 0.25);
+  --autoboutique-heading: #1E3A8A;
+}
+
+body {
+  color: #F8FAFC;
+  background-color: #060913;
+  font-family: 'Prompt', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Luxury Blue Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #060913;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+
+/* Signature Autoboutique Heading Decoration in Luxury Royal Sapphire */
+.autoboutique-title-bar {
+  position: relative;
+  padding-left: 14px;
+}
+.autoboutique-title-bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 4px;
+  background: linear-gradient(180deg, #60A5FA 0%, #2563EB 50%, #1D4ED8 100%);
+  border-radius: 9999px;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+}
