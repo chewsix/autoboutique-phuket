@@ -22,6 +22,8 @@ import {
   formatPhoneInput,
   isValidThaiPhone,
   getEstimatedCompletion,
+  generatePromptPayPayload,
+  crc16,
   BookingRecord,
   CustomerPackage,
   ServiceType,
@@ -738,6 +740,46 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
 
       const upsertPkgRes = await upsertRemotePackage({ id: 'TEST' });
       assert.strictEqual(upsertPkgRes, false);
+    });
+  });
+
+  // =========================================================================
+  // TEST SUITE 13: Official EMVCo Standard PromptPay QR Engine
+  // =========================================================================
+  describe('Suite 13: Official EMVCo Standard PromptPay QR Engine', () => {
+    it('TC-44: EMVCo PromptPay QR string structure and CRC-16 checksum calculation', () => {
+      // Test with studio hotline 0966369933 and ฿500 flat wash
+      const payload = generatePromptPayPayload('0966369933', 500);
+
+      assert.strictEqual(payload.startsWith('000201010212'), true, 'Must start with EMVCo format & dynamic initiation');
+      assert.strictEqual(payload.includes('A000000677010111'), true, 'Must contain official PromptPay AID');
+      assert.strictEqual(payload.includes('0066966369933'), true, 'Must format mobile to international 0066 standard');
+      assert.strictEqual(payload.includes('5802TH'), true, 'Must specify Thailand country code');
+      assert.strictEqual(payload.includes('5303764'), true, 'Must specify THB currency 764');
+      assert.strictEqual(payload.includes('5406500.00'), true, 'Must include exact ฿500.00 amount with correct length');
+
+      // Verify CRC16 checksum at the end
+      const withoutChecksum = payload.slice(0, -4);
+      const calculatedChecksum = crc16(withoutChecksum);
+      const actualChecksum = payload.slice(-4);
+      assert.strictEqual(actualChecksum, calculatedChecksum, 'CRC-16 CCITT checksum must match');
+      assert.strictEqual(actualChecksum.length, 4);
+    });
+
+    it('TC-45: Dynamic amount formatting for Packages and National ID support', () => {
+      // 12 Sessions VIP Package @ ฿5,000 (length of 5000.00 is 7)
+      const pkgPayload = generatePromptPayPayload('096-636-9933', 5000);
+      assert.strictEqual(pkgPayload.includes('54075000.00'), true);
+      assert.strictEqual(pkgPayload.slice(-4), crc16(pkgPayload.slice(0, -4)));
+
+      // Static PromptPay QR (without amount)
+      const staticPayload = generatePromptPayPayload('0966369933');
+      assert.strictEqual(staticPayload.startsWith('000201010211'), true, 'Static payload initiation method must be 11');
+      assert.strictEqual(staticPayload.includes('54'), false, 'Static payload must not contain tag 54 amount');
+
+      // Thai Tax/National ID (13 digits)
+      const taxIdPayload = generatePromptPayPayload('0123456789012', 1000);
+      assert.strictEqual(taxIdPayload.includes('02130123456789012'), true, 'Tag 29 subtag 02 for 13-digit ID');
     });
   });
 });

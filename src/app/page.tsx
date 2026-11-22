@@ -73,6 +73,7 @@ import {
   formatPhoneInput,
   isValidThaiPhone,
   getEstimatedCompletion,
+  generatePromptPayPayload,
   BookingRecord,
   PackageDeal,
   CustomerPackage,
@@ -2067,8 +2068,10 @@ export default function AutoboutiqueApp() {
                 {/* QR Code Container */}
                 <div className="w-44 h-44 mx-auto bg-white p-2.5 rounded-2xl shadow-lg flex items-center justify-center">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=00020101021129370016A000000677010111011300669663699335802TH5405${promptPayModal.amount}.0053037646304`}
-                    alt="PromptPay QR Code"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+                      generatePromptPayPayload('0966369933', promptPayModal.amount)
+                    )}`}
+                    alt="Official PromptPay EMVCo QR Code"
                     className="w-full h-full object-contain"
                   />
                 </div>

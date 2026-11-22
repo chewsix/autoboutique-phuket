@@ -886,3 +886,50 @@ export function getEstimatedCompletion(timeSlot: string): string {
   return `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+// EMVCo CRC-16 (CCITT-FALSE: poly 0x1021, init 0xFFFF)
+export function crc16(data: string): string {
+  let crc = 0xffff;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xffff;
+      } else {
+        crc = (crc << 1) & 0xffff;
+      }
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+// Official EMVCo Standard Dynamic/Static PromptPay QR Payload Generator
+export function generatePromptPayPayload(phoneOrNationalId: string, amount?: number): string {
+  const digits = phoneOrNationalId.replace(/\D/g, '');
+  let subtag = '';
+
+  if (digits.length === 13) {
+    // Thai National ID / Tax ID
+    subtag = '0213' + digits;
+  } else {
+    // Thai Mobile Phone (Formatted to E.164 without '+' with 0066 prefix, length 13)
+    const mobileDigits = digits.startsWith('0') ? digits.slice(1) : digits;
+    const formatted = '0066' + mobileDigits;
+    subtag = '0113' + formatted;
+  }
+
+  const target = '0016A000000677010111' + subtag;
+  const tag29 = '29' + target.length.toString().padStart(2, '0') + target;
+
+  let payload = '000201' + (amount && amount > 0 ? '010212' : '010211') + tag29 + '5802TH' + '5303764';
+
+  if (amount && amount > 0) {
+    const amtStr = Number(amount).toFixed(2);
+    payload += '54' + amtStr.length.toString().padStart(2, '0') + amtStr;
+  }
+
+  payload += '6304';
+  const checksum = crc16(payload);
+  return payload + checksum;
+}
+
+
