@@ -519,5 +519,10 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
       assert.strictEqual(getEstimatedCompletion('08:30'), '09:30');
       assert.strictEqual(getEstimatedCompletion('15:30'), '16:30');
     });
+
+    it('TC-38: isSupabaseConfigured safely returns false when environment variables are unset', async () => {
+      const { isSupabaseConfigured } = await import('../src/utils/supabaseClient');
+      assert.strictEqual(isSupabaseConfigured(), false);
+    });
   });
 });
