@@ -28,7 +28,7 @@ export interface BookingRecord {
   size?: CarSize;
   date: string;
   vipDelivery?: boolean;
-  status: 'pending' | 'step1' | 'step2' | 'step3' | 'step4' | 'ready';
+  status: 'pending' | 'step1' | 'step2' | 'step3' | 'step4' | 'ready' | 'cancelled';
   isWalkIn?: boolean;
   createdAt?: string; // ISO date string
   paidAmount?: number;

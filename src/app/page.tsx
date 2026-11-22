@@ -991,11 +991,13 @@ export default function Home() {
   const matchingVehicles = useMemo(() => {
     if (!vehicleSearchQuery.trim()) return bookings;
     const q = vehicleSearchQuery.toLowerCase().trim();
+    const cleanNumbers = q.replace(/[^0-9]/g, '');
     return bookings.filter(
       (b) =>
         b.carInfo.toLowerCase().includes(q) ||
         b.id.toLowerCase().includes(q) ||
-        b.customerName.toLowerCase().includes(q)
+        b.customerName.toLowerCase().includes(q) ||
+        (cleanNumbers.length >= 3 && b.phone.replace(/[^0-9]/g, '').includes(cleanNumbers))
     );
   }, [bookings, vehicleSearchQuery]);
 

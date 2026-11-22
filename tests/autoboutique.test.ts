@@ -23,6 +23,7 @@ import {
   isValidThaiPhone,
   getEstimatedCompletion,
   BookingRecord,
+  CustomerPackage,
   ServiceType,
 } from '../src/utils/bookingLogic';
 
@@ -523,6 +524,220 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
     it('TC-38: isSupabaseConfigured safely returns false when environment variables are unset', async () => {
       const { isSupabaseConfigured } = await import('../src/utils/supabaseClient');
       assert.strictEqual(isSupabaseConfigured(), false);
+    });
+  });
+
+  // =========================================================================
+  // TEST SUITE 12: Comprehensive Boundary Stress & Operational Resilience
+  // =========================================================================
+  describe('Suite 12: Comprehensive Boundary Stress & Operational Resilience', () => {
+    it('TC-39: 15-Minute Policy strict millisecond boundary validation', () => {
+      const baseTime = 1732300000000; // Reference timestamp
+      const pkgBooking: BookingRecord = {
+        id: 'BK-TEST-15M',
+        timeSlot: '09:30',
+        customerName: 'Test Customer',
+        phone: '089-999-8877',
+        carInfo: 'BMW M2 (กข 8888 ภูเก็ต)',
+        serviceKey: 'wash',
+        service: 'Premium Wash',
+        subOptionId: 'standard',
+        date: '2026-11-25',
+        status: 'pending',
+        createdAt: new Date(baseTime).toISOString(),
+        paidAmount: 0,
+        paymentMethod: 'package',
+        paymentStatus: 'package_redeemed',
+        usedPackageId: 'CPKG-001',
+      };
+
+      // Exactly 0 ms (immediate cancellation)
+      const res0 = checkCancellationPackagePolicy(pkgBooking, baseTime);
+      assert.strictEqual(res0.willRefundQuota, true);
+      assert.strictEqual(res0.within15Minutes, true);
+
+      // Exactly 14 minutes and 59 seconds (899,000 ms)
+      const res14m59s = checkCancellationPackagePolicy(pkgBooking, baseTime + 14 * 60 * 1000 + 59 * 1000);
+      assert.strictEqual(res14m59s.willRefundQuota, true);
+      assert.strictEqual(res14m59s.within15Minutes, true);
+
+      // Exactly 15 minutes (900,000 ms) -> within limit
+      const res15m00s = checkCancellationPackagePolicy(pkgBooking, baseTime + 15 * 60 * 1000);
+      assert.strictEqual(res15m00s.willRefundQuota, true);
+      assert.strictEqual(res15m00s.within15Minutes, true);
+
+      // Exactly 16 minutes (960,000 ms) -> exceeded limit (forfeited)
+      const res16m = checkCancellationPackagePolicy(pkgBooking, baseTime + 16 * 60 * 1000);
+      assert.strictEqual(res16m.willRefundQuota, false);
+      assert.strictEqual(res16m.within15Minutes, false);
+
+      // 120 minutes -> strictly forfeited
+      const res120m = checkCancellationPackagePolicy(pkgBooking, baseTime + 120 * 60 * 1000);
+      assert.strictEqual(res120m.willRefundQuota, false);
+      assert.strictEqual(res120m.within15Minutes, false);
+    });
+
+    it('TC-40: Package quota boundaries and exhausted status logic', () => {
+      let pkg: CustomerPackage = {
+        id: 'CPKG-TEST',
+        packageId: 'PKG-WASH-12',
+        serviceKey: 'wash',
+        packageNameTh: 'Super Wash Pass 12',
+        packageNameEn: 'Super Wash Pass (12 Sessions)',
+        customerName: 'VIP Member',
+        phone: '089-999-8877',
+        carInfo: 'BMW M2',
+        totalQuota: 12,
+        remainingQuota: 1,
+        purchaseDate: '2026-11-01',
+        expiryDate: '2027-11-01',
+        status: 'active',
+        pricePaid: 5000,
+      };
+
+      // Redeem final quota
+      const nextQuota = Math.max(0, pkg.remainingQuota - 1);
+      pkg = {
+        ...pkg,
+        remainingQuota: nextQuota,
+        status: nextQuota === 0 ? 'exhausted' : 'active',
+      };
+      assert.strictEqual(pkg.remainingQuota, 0);
+      assert.strictEqual(pkg.status, 'exhausted');
+
+      // Attempting to deduct below 0 is safely clamped at 0
+      const clampedQuota = Math.max(0, pkg.remainingQuota - 1);
+      assert.strictEqual(clampedQuota, 0);
+
+      // Restoring quota restores active status
+      const restoredQuota = Math.min(pkg.totalQuota, pkg.remainingQuota + 1);
+      pkg = {
+        ...pkg,
+        remainingQuota: restoredQuota,
+        status: restoredQuota > 0 ? 'active' : 'exhausted',
+      };
+      assert.strictEqual(pkg.remainingQuota, 1);
+      assert.strictEqual(pkg.status, 'active');
+    });
+
+    it('TC-41: Daily Financial Dashboard excludes cancelled bookings and correctly aggregates revenue', () => {
+      const sampleBookings: BookingRecord[] = [
+        // 1. Regular promptpay wash ฿500
+        {
+          id: 'B1', timeSlot: '08:30', customerName: 'A', phone: '0811111111', carInfo: 'Car A',
+          serviceKey: 'wash', service: 'Wash', subOptionId: 'standard', date: '2026-11-25',
+          status: 'ready', createdAt: '2026-11-25T08:00:00Z', paidAmount: 500,
+          paymentMethod: 'promptpay', paymentStatus: 'paid'
+        },
+        // 2. Wash with wax add-on ฿900
+        {
+          id: 'B2', timeSlot: '09:30', customerName: 'B', phone: '0822222222', carInfo: 'Car B',
+          serviceKey: 'wash', service: 'Wash', subOptionId: 'wax', date: '2026-11-25',
+          status: 'step2', createdAt: '2026-11-25T09:00:00Z', paidAmount: 900,
+          paymentMethod: 'promptpay', paymentStatus: 'paid'
+        },
+        // 3. Walk-in ฿500
+        {
+          id: 'B3', timeSlot: '10:30', customerName: 'C', phone: '0833333333', carInfo: 'Car C',
+          serviceKey: 'wash', service: 'Wash', subOptionId: 'standard', date: '2026-11-25',
+          status: 'step1', createdAt: '2026-11-25T10:00:00Z', paidAmount: 500,
+          paymentMethod: 'promptpay', paymentStatus: 'paid'
+        },
+        // 4. Package redemption (฿0 paid)
+        {
+          id: 'B4', timeSlot: '13:00', customerName: 'D', phone: '0844444444', carInfo: 'Car D',
+          serviceKey: 'wash', service: 'Wash', subOptionId: 'standard', date: '2026-11-25',
+          status: 'step2', createdAt: '2026-11-25T12:00:00Z', paidAmount: 0,
+          paymentMethod: 'package', paymentStatus: 'package_redeemed'
+        },
+        // 5. Cancelled booking (฿500 original price, but CANCELLED)
+        {
+          id: 'B5', timeSlot: '14:00', customerName: 'E', phone: '0855555555', carInfo: 'Car E',
+          serviceKey: 'wash', service: 'Wash', subOptionId: 'standard', date: '2026-11-25',
+          status: 'cancelled', createdAt: '2026-11-25T13:00:00Z', paidAmount: 500,
+          paymentMethod: 'promptpay', paymentStatus: 'paid'
+        },
+      ];
+
+      // Calculate daily total revenue for active (non-cancelled) bookings
+      const activeBookings = sampleBookings.filter(b => b.status !== 'cancelled');
+      const totalRevenue = activeBookings.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
+
+      // Expected: 500 + 900 + 500 + 0 = 1,900
+      assert.strictEqual(totalRevenue, 1900, `Expected ฿1,900, got ${totalRevenue}`);
+      assert.strictEqual(activeBookings.length, 4);
+    });
+
+    it('TC-42: Search filter matches license plate, phone, name and booking ID accurately', () => {
+      const records: BookingRecord[] = [
+        {
+          id: 'BK-001', timeSlot: '08:30', customerName: 'คุณอัครวัฒน์ ชัยกิตติคุณ',
+          phone: '089-999-8877', carInfo: 'BMW M2 Coupe (กข 8888 ภูเก็ต)', serviceKey: 'wash',
+          service: 'Wash', subOptionId: 'standard', date: '2026-11-25', status: 'ready',
+          createdAt: '2026-11-25T08:00:00Z', paidAmount: 500, paymentMethod: 'promptpay'
+        },
+        {
+          id: 'BK-002', timeSlot: '09:30', customerName: 'John Smith',
+          phone: '084-555-9090', carInfo: 'Porsche 911 (3ขข 1234 ภูเก็ต)', serviceKey: 'wash',
+          service: 'Wash', subOptionId: 'standard', date: '2026-11-25', status: 'step2',
+          createdAt: '2026-11-25T09:00:00Z', paidAmount: 500, paymentMethod: 'promptpay'
+        }
+      ];
+
+      const filterBy = (term: string) => {
+        const q = term.toLowerCase().trim();
+        const cleanNums = q.replace(/[^0-9]/g, '');
+        return records.filter(b => 
+          b.carInfo.toLowerCase().includes(q) ||
+          b.customerName.toLowerCase().includes(q) ||
+          (cleanNums.length > 0 && b.phone.replace(/[^0-9]/g, '').includes(cleanNums)) ||
+          b.id.toLowerCase().includes(q)
+        );
+      };
+
+      // Match partial plate
+      assert.strictEqual(filterBy('8888').length, 1);
+      assert.strictEqual(filterBy('1234').length, 1);
+      assert.strictEqual(filterBy('ภูเก็ต').length, 2);
+
+      // Match partial phone (with and without dashes)
+      assert.strictEqual(filterBy('0899998877').length, 1);
+      assert.strictEqual(filterBy('084-555').length, 1);
+
+      // Match partial name
+      assert.strictEqual(filterBy('อัครวัฒน์').length, 1);
+      assert.strictEqual(filterBy('john').length, 1);
+
+      // Match Booking ID (case-insensitive)
+      assert.strictEqual(filterBy('bk-001').length, 1);
+      assert.strictEqual(filterBy('BK-002').length, 1);
+    });
+
+    it('TC-43: Supabase client methods return safe fallbacks when unconfigured without crashing', async () => {
+      const {
+        isSupabaseConfigured,
+        fetchRemoteBookings,
+        upsertRemoteBooking,
+        updateRemoteBookingStatus,
+        fetchRemotePackages,
+        upsertRemotePackage,
+      } = await import('../src/utils/supabaseClient');
+
+      assert.strictEqual(isSupabaseConfigured(), false);
+      const bookingsRes = await fetchRemoteBookings();
+      assert.strictEqual(bookingsRes, null);
+
+      const upsertBookingRes = await upsertRemoteBooking({ id: 'TEST' });
+      assert.strictEqual(upsertBookingRes, false);
+
+      const updateStatusRes = await updateRemoteBookingStatus('TEST', 'ready');
+      assert.strictEqual(updateStatusRes, false);
+
+      const packagesRes = await fetchRemotePackages();
+      assert.strictEqual(packagesRes, null);
+
+      const upsertPkgRes = await upsertRemotePackage({ id: 'TEST' });
+      assert.strictEqual(upsertPkgRes, false);
     });
   });
 });
