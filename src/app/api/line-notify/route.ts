@@ -38,7 +38,11 @@ export async function POST(req: NextRequest) {
     } = body;
 
     const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-    const targetUserId = lineUserId || process.env.LINE_DEFAULT_USER_ID;
+    const targetUserId =
+      lineUserId ||
+      process.env.LINE_DEFAULT_USER_ID ||
+      process.env.LINE_ADMIN_USER_ID ||
+      process.env.LINE_USER_ID;
 
     const isBookingConfirmed = type === 'booking_confirmed';
 
@@ -199,8 +203,8 @@ export async function POST(req: NextRequest) {
               height: 'sm',
               action: {
                 type: 'uri',
-                label: '🔍 ตรวจสอบสถานะรถสด & บัตรสะสมแต้ม',
-                uri: 'https://line.me/R/app/autoboutique-tracker',
+                label: '🔍 ตรวจสอบสถานะรถสด (Live Tracker)',
+                uri: 'https://autoboutique-phuket.vercel.app/',
               },
             },
             {
