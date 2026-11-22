@@ -446,25 +446,50 @@ export default function AutoboutiqueApp() {
     }
   };
 
-  // Process Slip File (Validation & Preview)
+  // Process Slip File (Validation, Client-Side Canvas Compression to ~80KB, & Preview)
   const handleProcessSlipFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert(isTh ? 'กรุณาอัปโหลดไฟล์รูปภาพสลิปเท่านั้น (JPEG, PNG)' : 'Please upload an image file (JPEG, PNG)');
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      alert(isTh ? 'ขนาดไฟล์รูปภาพเกิน 8MB กรุณาเลือกไฟล์ใหม่' : 'File exceeds 8MB. Please select a smaller image.');
-      return;
-    }
+    setSlipChecking(true);
     const reader = new FileReader();
     reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setUploadedSlipPreview(result);
-      setSlipChecking(true);
-      setTimeout(() => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_DIM = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          }
+        } else {
+          if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          setUploadedSlipPreview(compressedDataUrl);
+        } else {
+          setUploadedSlipPreview(e.target?.result as string);
+        }
         setSlipChecking(false);
         setSlipVerified(true);
-      }, 700);
+      };
+      img.onerror = () => {
+        setSlipChecking(false);
+        alert(isTh ? 'ไม่สามารถอ่านไฟล์รูปภาพได้ กรุณาลองใหม่อีกครั้ง' : 'Failed to read image file.');
+      };
+      img.src = e.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
