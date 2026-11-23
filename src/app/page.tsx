@@ -48,6 +48,8 @@ import {
   Search,
   Filter,
   Smartphone,
+  Landmark,
+  ArrowRight,
 } from 'lucide-react';
 
 import {
@@ -168,6 +170,27 @@ const INITIAL_BOOKINGS: BookingRecord[] = [
   },
 ];
 
+// Top Thai Mobile Banking Apps (for 1-Device Deep Link Launcher)
+interface ThaiBankApp {
+  id: string;
+  name: string;
+  bankNameTh: string;
+  bankNameEn: string;
+  scheme: string;
+  bgClass: string;
+  textClass: string;
+  borderClass: string;
+}
+
+const THAI_BANK_APPS: ThaiBankApp[] = [
+  { id: 'kbank', name: 'K PLUS', bankNameTh: 'กสิกรไทย', bankNameEn: 'KBank', scheme: 'kplus://', bgClass: 'bg-emerald-950/80 hover:bg-emerald-900', textClass: 'text-emerald-300', borderClass: 'border-emerald-600/40' },
+  { id: 'scb', name: 'SCB EASY', bankNameTh: 'ไทยพาณิชย์', bankNameEn: 'SCB', scheme: 'scbeasy://', bgClass: 'bg-purple-950/80 hover:bg-purple-900', textClass: 'text-purple-300', borderClass: 'border-purple-600/40' },
+  { id: 'ktb', name: 'Krungthai NEXT', bankNameTh: 'กรุงไทย', bankNameEn: 'KTB', scheme: 'ktbnext://', bgClass: 'bg-sky-950/80 hover:bg-sky-900', textClass: 'text-sky-300', borderClass: 'border-sky-600/40' },
+  { id: 'bbl', name: 'Bualuang m', bankNameTh: 'กรุงเทพ', bankNameEn: 'BBL', scheme: 'bualuangmbanking://', bgClass: 'bg-blue-950/80 hover:bg-blue-900', textClass: 'text-blue-300', borderClass: 'border-blue-600/40' },
+  { id: 'ttb', name: 'ttb touch', bankNameTh: 'ทีทีบี', bankNameEn: 'TTB', scheme: 'ttbtouch://', bgClass: 'bg-indigo-950/80 hover:bg-indigo-900', textClass: 'text-indigo-300', borderClass: 'border-indigo-600/40' },
+  { id: 'bay', name: 'KMA กรุงศรี', bankNameTh: 'กรุงศรี', bankNameEn: 'Krungsri', scheme: 'kma://', bgClass: 'bg-amber-950/80 hover:bg-amber-900', textClass: 'text-amber-300', borderClass: 'border-amber-600/40' },
+];
+
 export default function AutoboutiqueApp() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [view, setView] = useState<'booking' | 'packages' | 'tracker' | 'admin'>('booking');
@@ -234,6 +257,8 @@ export default function AutoboutiqueApp() {
   const [trackerSearchTerm, setTrackerSearchTerm] = useState<string>('');
   const [copiedPromptPay, setCopiedPromptPay] = useState(false);
   const [copiedAmount, setCopiedAmount] = useState(false);
+  const [mobilePaymentTab, setMobilePaymentTab] = useState<'single_device' | 'qr_scan'>('single_device');
+  const [hasOneTapTriggered, setHasOneTapTriggered] = useState(false);
 
   const slipFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -546,12 +571,50 @@ export default function AutoboutiqueApp() {
     }
   };
 
+  // 1-Tap Mobile Pay: Simultaneously saves QR image to album and copies PromptPay ID to clipboard
+  const handleOneTapMobilePay = async (amount: number) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(PROMPTPAY_ID);
+      }
+      setCopiedPromptPay(true);
+      setTimeout(() => setCopiedPromptPay(false), 3500);
+    } catch {
+      // fallback
+    }
+
+    await handleDownloadQr(amount);
+    setHasOneTapTriggered(true);
+
+    setToastMessage(
+      isTh
+        ? `📥 บันทึกรูป QR ลงเครื่อง + คัดลอกเลขพร้อมเพย์ ${formatPromptPayId(PROMPTPAY_ID)} สำเร็จแล้ว!`
+        : `📥 Saved QR to album & copied PromptPay ID!`
+    );
+  };
+
+  // Open Mobile Banking App via URL Scheme
+  const handleOpenBankApp = (scheme: string, bankNameTh: string) => {
+    if (typeof window !== 'undefined') {
+      window.location.href = scheme;
+      setTimeout(() => {
+        setToastMessage(
+          isTh
+            ? `กำลังเปิดแอป ${bankNameTh}... หากไม่ขึ้นอัตโนมัติ กรุณาสลับไปเปิดแอปธนาคารที่ติดตั้งไว้`
+            : `Opening ${bankNameTh}... If it doesn't open, switch to your banking app directly.`
+        );
+      }, 600);
+    }
+  };
+
   // Open Payment Modal
   const handleOpenPromptPayModal = (type: 'booking' | 'package', title: string, amount: number, pkgId?: string) => {
     setPromptPayModal({ open: true, type, title, amount, pkgId });
     setUploadedSlipPreview(null);
     setSlipVerified(false);
     setPaymentCountdown(900); // 15:00
+    setMobilePaymentTab('single_device');
+    setHasOneTapTriggered(false);
   };
 
   // Confirm booking & payment
@@ -2114,20 +2177,20 @@ export default function AutoboutiqueApp() {
         )}
 
         {/* =========================================================================
-            PROMPTPAY & SLIP VERIFICATION MODAL (Optimized for Mobile & Desktop)
+            PROMPTPAY & SLIP VERIFICATION MODAL (Optimized for 1-Device Mobile & Desktop)
             ========================================================================= */}
         {promptPayModal.open && (
           <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fade-in">
-            <div className="luxe-panel rounded-2xl w-full max-w-md p-4 sm:p-5 space-y-4 max-h-[94vh] overflow-y-auto">
+            <div className="luxe-panel rounded-2xl w-full max-w-lg p-4 sm:p-5 space-y-3.5 max-h-[94vh] overflow-y-auto">
               {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-blue-900/60 border border-blue-500/40 flex items-center justify-center text-blue-300">
-                    <QrCode className="w-4 h-4" />
+                    <Smartphone className="w-4 h-4" />
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">
-                      PROMPTPAY OFFICIAL SETTLEMENT
+                      {isTh ? 'ระบบชำระเงินพร้อมเพย์ทางการ' : 'PROMPTPAY OFFICIAL SETTLEMENT'}
                     </span>
                     <h3 className="text-sm sm:text-base font-bold text-white">{promptPayModal.title}</h3>
                   </div>
@@ -2141,22 +2204,154 @@ export default function AutoboutiqueApp() {
                 </button>
               </div>
 
-              {/* Amount & PromptPay Display Card */}
-              <div className="p-3.5 sm:p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
-                {/* Timer Bar */}
-                <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-900">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{isTh ? 'เวลานับถอยหลังการชำระเงิน' : 'Time Remaining'}:</span>
-                  </span>
-                  <span className="font-mono font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">
-                    {formatTimer(paymentCountdown)}
-                  </span>
-                </div>
+              {/* Mode Switcher Tabs (จบในเครื่องเดียว vs สแกนข้ามเครื่อง) */}
+              <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setMobilePaymentTab('single_device')}
+                  className={`py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition ${
+                    mobilePaymentTab === 'single_device'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>{isTh ? '📱 จบในเครื่องนี้ (แอปธนาคาร)' : '📱 Pay on this Phone'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobilePaymentTab('qr_scan')}
+                  className={`py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition ${
+                    mobilePaymentTab === 'qr_scan'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>{isTh ? '🖥️ สแกน QR ข้ามเครื่อง' : '🖥️ Scan QR (2nd Phone)'}</span>
+                </button>
+              </div>
 
-                {/* QR Code Container */}
-                <div className="space-y-2">
-                  <div className="w-44 h-44 sm:w-48 sm:h-48 mx-auto bg-white p-2.5 rounded-2xl shadow-xl flex items-center justify-center border-2 border-blue-500/20">
+              {/* Timer Bar */}
+              <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{isTh ? 'เวลานับถอยหลังการชำระเงิน' : 'Time Remaining'}:</span>
+                </span>
+                <span className="font-mono font-bold text-amber-400 bg-amber-950/60 px-2.5 py-0.5 rounded-md border border-amber-800/40">
+                  {formatTimer(paymentCountdown)}
+                </span>
+              </div>
+
+              {/* TAB 1: 1-DEVICE MOBILE FLOW */}
+              {mobilePaymentTab === 'single_device' ? (
+                <div className="space-y-3">
+                  {/* STEP 1: PREPARE PAYMENT (Save QR / Copy National ID) */}
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
+                        {isTh ? 'บันทึก QR หรือคัดลอกเลขพร้อมเพย์' : 'Step 1: Save QR or Copy ID'}
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
+                        {isTh ? 'ยอดชำระ ฿' + promptPayModal.amount.toLocaleString() + '.00' : '฿' + promptPayModal.amount.toLocaleString()}
+                      </span>
+                    </div>
+
+                    {/* Giant 1-Tap Action Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOneTapMobilePay(promptPayModal.amount)}
+                      className="w-full py-3 px-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-900/40 transition active:scale-[0.99] flex flex-col items-center justify-center gap-0.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Download className="w-4 h-4 text-sky-200" />
+                        <span>
+                          {hasOneTapTriggered
+                            ? (isTh ? '✓ บันทึกรูปและคัดลอกเรียบร้อยแล้ว (กดซ้ำได้)' : '✓ Saved & Copied (Tap to repeat)')
+                            : (isTh ? '📥 บันทึกรูป QR ลงอัลบั้ม + คัดลอกเลขพร้อมเพย์ (คลิกเดียว)' : '📥 Save QR Image & Copy PromptPay ID')}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-blue-200/80 font-normal">
+                        {isTh ? 'เซฟรูปลงเครื่อง ➔ สแกนจากอัลบั้มในแอปธนาคาร หรือวางเลขพร้อมเพย์ได้ทันที' : 'Downloads QR & copies 13-digit ID'}
+                      </span>
+                    </button>
+
+                    {/* PromptPay National ID Details with 1-click copy */}
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
+                      <div className="min-w-0 pr-2">
+                        <div className="text-[10px] text-slate-400 font-medium">{isTh ? 'เลขประจำตัวประชาชน (พร้อมเพย์)' : 'PromptPay ID'}</div>
+                        <div className="font-mono font-bold text-white text-sm sm:text-base tracking-wider">
+                          {formatPromptPayId(PROMPTPAY_ID)}
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate">{PROMPTPAY_NAME}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleCopyPromptPay}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-[11px] font-semibold transition border border-slate-700 flex items-center gap-1"
+                        >
+                          {copiedPromptPay ? (
+                            <>
+                              <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-400">{isTh ? 'คัดลอกแล้ว' : 'Copied'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>{isTh ? 'คัดลอกเลข' : 'Copy'}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* STEP 2: OPEN BANKING APP LAUNCHER */}
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">2</span>
+                        {isTh ? 'แตะเปิดแอปธนาคารในเครื่องนี้' : 'Step 2: Open Bank App'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {isTh ? 'เลือกธนาคารของคุณ' : 'Select Bank'}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {isTh
+                        ? 'แตะเปิดแอปธนาคารด้านล่าง ➔ ไปที่เมนู "สแกน" ➔ เลือกรูป QR จากอัลบั้ม (รูปจะอยู่บนสุด):'
+                        : 'Tap to launch your bank app ➔ Select scan from album:'}
+                    </p>
+
+                    {/* Bank App Quick Launchers Grid */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {THAI_BANK_APPS.map((bank) => (
+                        <button
+                          key={bank.id}
+                          type="button"
+                          onClick={() => handleOpenBankApp(bank.scheme, bank.bankNameTh)}
+                          className={`p-2 sm:p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition active:scale-95 ${bank.bgClass} ${bank.borderClass}`}
+                        >
+                          <Landmark className={`w-4 h-4 ${bank.textClass}`} />
+                          <span className="text-[11px] font-bold text-white leading-tight">{bank.name}</span>
+                          <span className="text-[9px] text-slate-400">{bank.bankNameTh}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* TAB 2: QR SCAN FOR 2ND DEVICE / PC */
+                <div className="p-3.5 sm:p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
+                  <p className="text-xs text-slate-300">
+                    {isTh
+                      ? 'เปิดแอปธนาคารบนโทรศัพท์อีกเครื่อง แล้วสแกน QR Code นี้เพื่อชำระเงิน'
+                      : 'Scan this QR Code with your bank app on another device'}
+                  </p>
+                  <div className="w-48 h-48 mx-auto bg-white p-2.5 rounded-2xl shadow-xl flex items-center justify-center border-2 border-blue-500/20">
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
                         generatePromptPayPayload(PROMPTPAY_ID, promptPayModal.amount)
@@ -2166,97 +2361,32 @@ export default function AutoboutiqueApp() {
                     />
                   </div>
 
-                  {/* Save QR Image Button for Mobile */}
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadQr(promptPayModal.amount)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-medium transition hover:border-blue-500 active:scale-95"
-                  >
-                    <Download className="w-3.5 h-3.5 text-blue-400" />
-                    <span>{isTh ? 'บันทึกรูป QR ลงเครื่อง (เพื่อสแกนในแอปธนาคาร)' : 'Save QR Image (For Bank App)'}</span>
-                  </button>
-                </div>
-
-                {/* PromptPay National ID Info with 1-Click Copy */}
-                <div className="pt-2 border-t border-slate-900 space-y-2 text-left">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                      {isTh ? 'เลขประจำตัวประชาชน (พร้อมเพย์)' : 'PromptPay (National ID)'}
-                    </span>
-                    <span className="text-[10px] text-blue-400 font-medium">Auto-Fill Amount</span>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-left">
                     <div>
-                      <div className="font-mono font-bold text-white text-sm sm:text-base tracking-wider">
+                      <div className="font-mono font-bold text-white text-sm sm:text-base">
                         {formatPromptPayId(PROMPTPAY_ID)}
                       </div>
                       <div className="text-[10px] text-slate-400">{PROMPTPAY_NAME}</div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleCopyPromptPay}
-                      className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-[11px] font-semibold transition flex items-center gap-1 shrink-0"
-                    >
-                      {copiedPromptPay ? (
-                        <>
-                          <CheckCheck className="w-3.5 h-3.5 text-emerald-200" />
-                          <span>{isTh ? 'คัดลอกแล้ว' : 'Copied'}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>{isTh ? 'คัดลอกเลข' : 'Copy ID'}</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-xs text-slate-400">{isTh ? 'ยอดชำระสุทธิ:' : 'Amount:'}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl font-extrabold text-blue-400 font-sans">
+                    <div className="text-right">
+                      <span className="text-xs text-slate-400 block">{isTh ? 'ยอดชำระ' : 'Amount'}</span>
+                      <span className="text-base font-extrabold text-blue-400 font-sans">
                         ฿{promptPayModal.amount.toLocaleString()}.00
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyAmount(promptPayModal.amount)}
-                        className="p-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-[10px] transition"
-                        title={isTh ? 'คัดลอกยอดเงิน' : 'Copy amount'}
-                      >
-                        {copiedAmount ? <CheckCheck className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      </button>
                     </div>
                   </div>
                 </div>
+              )}
 
-                {/* Mobile Guide Pill */}
-                <div className="p-2.5 rounded-xl bg-blue-950/30 border border-blue-900/40 text-left space-y-1">
-                  <div className="text-[11px] font-semibold text-blue-300 flex items-center gap-1.5">
-                    <Smartphone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    <span>{isTh ? 'คำแนะนำสำหรับผู้ใช้งานบนโทรศัพท์มือถือ:' : 'Mobile Phone Instructions:'}</span>
-                  </div>
-                  <ul className="text-[10px] text-slate-300 space-y-0.5 pl-5 list-disc">
-                    <li>
-                      {isTh
-                        ? 'กดปุ่ม "บันทึกรูป QR" ➔ เปิดแอปธนาคาร ➔ เลือกเมนูสแกนจากอัลบั้มรูปภาพ'
-                        : 'Tap "Save QR" ➔ Open bank app ➔ Select scan from photo album'}
-                    </li>
-                    <li>
-                      {isTh
-                        ? 'หรือกดปุ่ม "คัดลอกเลข" ➔ เปิดแอปธนาคาร ➔ โอนเงินพร้อมเพย์ด้วยเลขบัตรประชาชน'
-                        : 'Or tap "Copy ID" ➔ Transfer via National ID in your bank app'}
-                    </li>
-                  </ul>
+              {/* STEP 3: SLIP UPLOAD & VERIFICATION */}
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">3</span>
+                    {isTh ? 'สลับกลับมาหน้านี้ ➔ แนบสลิปหลักฐาน' : 'Step 3: Upload Payment Slip'}
+                  </span>
+                  {slipVerified && <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> ตรวจสอบสลิปแล้ว</span>}
                 </div>
-              </div>
-
-              {/* Slip Upload & Verification Area */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                  <span>{isTh ? 'แนบสลิปหลักฐานการโอนเงิน (บังคับ):' : 'Upload Payment Slip (Required):'}</span>
-                  {slipVerified && <span className="text-[10px] text-emerald-400 font-bold">✓ ตรวจสอบสลิปแล้ว</span>}
-                </label>
 
                 <input
                   ref={slipFileInputRef}
@@ -2269,7 +2399,7 @@ export default function AutoboutiqueApp() {
                 />
 
                 {uploadedSlipPreview ? (
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
+                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       <img
                         src={uploadedSlipPreview}
@@ -2286,7 +2416,7 @@ export default function AutoboutiqueApp() {
                           ) : (
                             <>
                               <CheckCircle2 className="w-3 h-3" />
-                              <span>{isTh ? 'พร้อมยืนยันการจอง' : 'Ready to Submit'}</span>
+                              <span>{isTh ? 'สลิปพร้อมยืนยันการจอง' : 'Ready to Submit'}</span>
                             </>
                           )}
                         </p>
@@ -2298,7 +2428,7 @@ export default function AutoboutiqueApp() {
                         setUploadedSlipPreview(null);
                         setSlipVerified(false);
                       }}
-                      className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-900 transition shrink-0"
+                      className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800 transition shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -2306,21 +2436,21 @@ export default function AutoboutiqueApp() {
                 ) : (
                   <div
                     onClick={() => slipFileInputRef.current?.click()}
-                    className="p-4 rounded-xl border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-950/60 cursor-pointer text-center space-y-1.5 transition active:scale-[0.99]"
+                    className="p-3.5 sm:p-4 rounded-xl border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-900/60 cursor-pointer text-center space-y-1 transition active:scale-[0.99]"
                   >
-                    <Upload className="w-6 h-6 text-blue-400 mx-auto" />
+                    <Upload className="w-5 h-5 text-blue-400 mx-auto" />
                     <p className="text-xs font-semibold text-slate-200">
-                      {isTh ? 'แตะที่นี่เพื่อถ่ายรูปสลิป หรือเลือกจากอัลบั้ม' : 'Tap to take photo or choose from album'}
+                      {isTh ? 'แตะที่นี่เพื่อเลือกสลิปจากอัลบั้ม (รูปภาพล่าสุด)' : 'Tap to select slip from photo album'}
                     </p>
-                    <p className="text-[10px] text-slate-500">
-                      {isTh ? 'รองรับ JPEG, PNG (ระบบบีบอัดภาพอัตโนมัติ ไม่เปลืองเน็ต)' : 'Supports JPEG, PNG (Auto-compressed)'}
+                    <p className="text-[10px] text-slate-400">
+                      {isTh ? 'เมื่อโอนในแอปธนาคารเสร็จ สลิปจะอยู่บนสุดของอัลบั้ม แตะเลือกได้ทันที' : 'Select the transfer slip from your camera roll'}
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Confirm Button */}
-              <div className="pt-2">
+              {/* STEP 4: CONFIRM BUTTON */}
+              <div className="pt-1">
                 <button
                   type="button"
                   disabled={!slipVerified}
@@ -2340,7 +2470,7 @@ export default function AutoboutiqueApp() {
                   <CheckCircle2 className="w-4 h-4" />
                   <span>
                     {!slipVerified
-                      ? isTh ? 'กรุณาแนบสลิปก่อนยืนยัน' : 'Attach Slip to Unlock'
+                      ? isTh ? 'กรุณาแนบสลิปเพื่อปลดล็อกการยืนยัน' : 'Attach Slip to Unlock'
                       : isTh ? 'ยืนยันการจองคิว VIP และแจ้งเตือนสตูดิโอ' : 'Confirm & Notify Studio'}
                   </span>
                 </button>
