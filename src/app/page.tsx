@@ -105,7 +105,7 @@ const INITIAL_BOOKINGS: BookingRecord[] = [
     id: 'BK-001',
     timeSlot: '08:30',
     customerName: 'คุณอัครวัฒน์ ชัยกิตติคุณ',
-    phone: '089-999-8877',
+    phone: '066-109-8306',
     carInfo: 'BMW M2 Coupe (กข 8888 ภูเก็ต)',
     serviceKey: 'wash',
     service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
@@ -665,8 +665,8 @@ export default function AutoboutiqueApp() {
       id: newBookingId,
       timeSlot: bookingTimeSlot,
       customerName: formName.trim() || 'คุณลูกค้า VIP',
-      phone: formPhone.trim() || '089-999-8877',
-      carInfo: formCar.trim() || 'Mercedes-Benz (กข 8888 ภูเก็ต)',
+      phone: formPhone.trim() || '066-109-8306',
+      carInfo: formCar.trim() || 'รถยนต์ลูกค้า (ภูเก็ต)',
       serviceKey: 'wash',
       service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
       subOptionId: selectedSubOption,
@@ -770,7 +770,7 @@ export default function AutoboutiqueApp() {
       packageNameTh: pkgDeal.nameTh,
       packageNameEn: pkgDeal.nameEn,
       customerName: formName.trim() || 'คุณลูกค้า VIP',
-      phone: formPhone.trim() || '089-999-8877',
+      phone: formPhone.trim() || '066-109-8306',
       carInfo: formCar.trim() || 'รถยนต์สมาชิก (ภูเก็ต)',
       totalQuota: pkgDeal.totalUses,
       remainingQuota: pkgDeal.totalUses,
@@ -873,7 +873,7 @@ export default function AutoboutiqueApp() {
       id: newId,
       timeSlot: '09:30',
       customerName: walkInName.trim(),
-      phone: walkInPhone.trim() || '089-999-8877',
+      phone: walkInPhone.trim() || '066-109-8306',
       carInfo: walkInCar.trim(),
       serviceKey: 'wash',
       service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
@@ -1132,11 +1132,11 @@ export default function AutoboutiqueApp() {
             {/* Top Right: Hotline, Language & Theme Mode */}
             <div className="flex items-center gap-2 md:gap-3">
               <a
-                href="tel:0966369933"
+                href="tel:0661098306"
                 className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 hover:text-white hover:border-slate-700 text-xs transition"
               >
                 <Phone className="w-3.5 h-3.5 text-blue-400" />
-                <span className="font-medium">096 636 9933</span>
+                <span className="font-medium">066 109 8306</span>
               </a>
 
               {/* Language Selector */}
@@ -1600,7 +1600,7 @@ export default function AutoboutiqueApp() {
                   <input
                     type="text"
                     required
-                    placeholder={isTh ? 'เช่น คุณอัครวัฒน์ ชัยกิตติคุณ' : 'e.g. John Doe'}
+                    placeholder={isTh ? 'ระบุชื่อ-นามสกุล ของท่าน' : 'e.g. John Doe'}
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition"
@@ -1625,7 +1625,7 @@ export default function AutoboutiqueApp() {
                     type="tel"
                     required
                     maxLength={12}
-                    placeholder="089-999-8877"
+                    placeholder="08X-XXX-XXXX"
                     value={formPhone}
                     onChange={(e) => setFormPhone(formatPhoneInput(e.target.value))}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition font-mono"
@@ -1640,7 +1640,7 @@ export default function AutoboutiqueApp() {
                   <input
                     type="text"
                     required
-                    placeholder={isTh ? 'เช่น BMW M2 Coupe (กข 8888 ภูเก็ต)' : 'e.g. Porsche 911 GT3 (7กง 7777 ภูเก็ต)'}
+                    placeholder={isTh ? 'ระบุยี่ห้อ รุ่น และเลขทะเบียน (เช่น Honda Civic กข 1234 ภูเก็ต)' : 'e.g. Honda Civic (1กข 1234 Phuket)'}
                     value={formCar}
                     onChange={(e) => setFormCar(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition"
@@ -2610,7 +2610,7 @@ export default function AutoboutiqueApp() {
             <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <h3 className="text-base font-bold text-white">
-                  {isTh ? 'บันทึกคิวลูกค้า Walk-in (฿500)' : 'New Walk-in Reception'}
+                  {isTh ? 'บันทึกคิวลูกค้า Walk-in (฿1 - ทดสอบ)' : 'New Walk-in Reception'}
                 </h3>
                 <button
                   type="button"
@@ -2628,7 +2628,7 @@ export default function AutoboutiqueApp() {
                     type="text"
                     value={walkInName}
                     onChange={(e) => setWalkInName(e.target.value)}
-                    placeholder="เช่น คุณอัครวัฒน์"
+                    placeholder="ระบุชื่อลูกค้า"
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500"
                   />
                 </div>
@@ -2638,7 +2638,7 @@ export default function AutoboutiqueApp() {
                     type="tel"
                     value={walkInPhone}
                     onChange={(e) => setWalkInPhone(formatPhoneInput(e.target.value))}
-                    placeholder="089-999-8877"
+                    placeholder="08X-XXX-XXXX"
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
@@ -2648,7 +2648,7 @@ export default function AutoboutiqueApp() {
                     type="text"
                     value={walkInCar}
                     onChange={(e) => setWalkInCar(e.target.value)}
-                    placeholder="เช่น Porsche 911 (7กง 7777)"
+                    placeholder="ระบุยี่ห้อ รุ่น และทะเบียน"
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500"
                   />
                 </div>
@@ -2667,7 +2667,7 @@ export default function AutoboutiqueApp() {
                   onClick={handleCreateWalkIn}
                   className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold"
                 >
-                  {isTh ? 'บันทึกคิว (฿500)' : 'Save Walk-in'}
+                  {isTh ? 'บันทึกคิว (฿1)' : 'Save Walk-in (฿1)'}
                 </button>
               </div>
             </div>
@@ -2843,10 +2843,14 @@ export default function AutoboutiqueApp() {
             STUDIO FOOTER
             ========================================================================= */}
         <footer className="mt-auto border-t border-slate-900 bg-[#060913] p-4 md:p-6 text-center text-xs text-slate-500 space-y-2">
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <span className="font-bold text-slate-300 tracking-wider uppercase font-sans">Autoboutique Phuket</span>
             <span>•</span>
             <span>C-Cube Automotive Co., Ltd.</span>
+            <span>•</span>
+            <a href="tel:0661098306" className="text-blue-400 hover:text-blue-300 transition font-mono">
+              📞 066 109 8306
+            </a>
           </div>
           <p className="text-[11px] text-slate-600">
             {isTh

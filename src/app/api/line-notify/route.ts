@@ -265,8 +265,8 @@ export async function POST(req: NextRequest) {
               height: 'sm',
               action: {
                 type: 'uri',
-                label: '📞 ติดต่อสตูดิโอ (096 636 9933)',
-                uri: 'tel:0966369933',
+                label: '📞 ติดต่อสตูดิโอ (066 109 8306)',
+                uri: 'tel:0661098306',
               },
             },
           ],

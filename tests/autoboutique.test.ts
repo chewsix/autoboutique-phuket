@@ -33,24 +33,24 @@ import {
 
 describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () => {
   // =========================================================================
-  // TEST SUITE 1: Flat-Rate Pricing Calculation (฿500 Standard Wash)
+  // TEST SUITE 1: Flat-Rate Pricing Calculation (฿1 Test Rate & Official Packages)
   // =========================================================================
   describe('Suite 1: Flat-Rate Pricing Engine & Add-on Calculation', () => {
-    it('TC-01: Premium Wash base price is strictly ฿500 flat (No car size matrix)', () => {
+    it('TC-01: Premium Wash base price is strictly ฿1 flat (1 Baht Test Mode)', () => {
       const result = calculatePrice('wash', 'standard');
-      assert.strictEqual(result.price, 500, `Expected ฿500 flat, got ${result.price}`);
+      assert.strictEqual(result.price, 1, `Expected ฿1 flat, got ${result.price}`);
       assert.strictEqual(result.duration, '1 ชม.');
     });
 
-    it('TC-02: Premium Wash add-ons (+฿500 engine bay, +฿400 wax, +฿300 glass)', () => {
+    it('TC-02: Premium Wash add-ons in test mode are ฿0 (+฿1 total test base)', () => {
       const withEngine = calculatePrice('wash', 'engine');
-      assert.strictEqual(withEngine.price, 500 + 500);
+      assert.strictEqual(withEngine.price, 1);
 
       const withWax = calculatePrice('wash', 'wax');
-      assert.strictEqual(withWax.price, 500 + 400);
+      assert.strictEqual(withWax.price, 1);
 
       const withGlass = calculatePrice('wash', 'glass');
-      assert.strictEqual(withGlass.price, 500 + 300);
+      assert.strictEqual(withGlass.price, 1);
     });
 
     it('TC-03: Duration and pH 7 detailing specification', () => {
@@ -59,25 +59,25 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
       assert.ok(result.noteTh?.includes('pH 7'));
     });
 
-    it('TC-04: Official Wash Package pricing structure (12 sessions @ ฿5,000, saving ฿1,000)', () => {
+    it('TC-04: Official Wash Package pricing structure (฿1 Test Mode)', () => {
       const pkg12 = OFFICIAL_PACKAGES.find((p) => p.id === 'PKG-WASH-12');
       assert.ok(pkg12);
-      assert.strictEqual(pkg12.price, 5000);
+      assert.strictEqual(pkg12.price, 1);
       assert.strictEqual(pkg12.totalUses, 12);
-      assert.strictEqual(pkg12.savings, 1000);
+      assert.strictEqual(pkg12.savings, 0);
 
       const pkg6 = OFFICIAL_PACKAGES.find((p) => p.id === 'PKG-WASH-6');
       assert.ok(pkg6);
-      assert.strictEqual(pkg6.price, 2700);
+      assert.strictEqual(pkg6.price, 1);
       assert.strictEqual(pkg6.totalUses, 6);
     });
 
-    it('TC-05: 8-session VIP Wash & Wax package provides ฿1,300 savings', () => {
+    it('TC-05: 8-session VIP Wash & Wax package in ฿1 test mode', () => {
       const pkgWax = OFFICIAL_PACKAGES.find((p) => p.id === 'PKG-WASH-WAX-8');
       assert.ok(pkgWax);
-      assert.strictEqual(pkgWax.price, 5900);
+      assert.strictEqual(pkgWax.price, 1);
       assert.strictEqual(pkgWax.totalUses, 8);
-      assert.strictEqual(pkgWax.savings, 1300);
+      assert.strictEqual(pkgWax.savings, 0);
     });
 
     it('TC-06: 24-Hour Studio Cleanliness & Rain Guarantee', () => {
@@ -335,11 +335,11 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
   // TEST SUITE 10: Studio Packages & 15-Minute Cancellation Rules
   // =========================================================================
   describe('Suite 10: Studio Packages & 15-Minute Cancellation Rules', () => {
-    it('TC-27: Official wash package gives 12 sessions for ฿5,000 (saving ฿1,000)', () => {
+    it('TC-27: Official wash package gives 12 sessions for ฿1 in test mode', () => {
       const pkg = OFFICIAL_PACKAGES[0];
       assert.strictEqual(pkg.totalUses, 12);
-      assert.strictEqual(pkg.price, 5000);
-      assert.strictEqual(pkg.savings, 1000);
+      assert.strictEqual(pkg.price, 1);
+      assert.strictEqual(pkg.savings, 0);
     });
 
     it('TC-28: Cancellation within 15 minutes of booking creation REFUNDS package quota', () => {
@@ -502,9 +502,9 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
       assert.strictEqual(matchName.length, 1);
     });
 
-    it('TC-34: Admin walk-in calculates correct ฿500 base revenue without size', () => {
+    it('TC-34: Admin walk-in calculates correct ฿1 base rate in test mode', () => {
       const washPrice = calculatePrice('wash', 'standard');
-      assert.strictEqual(washPrice.price, 500);
+      assert.strictEqual(washPrice.price, 1);
     });
 
     it('TC-35: formatPhoneInput formats 10-digit number smoothly', () => {
@@ -750,15 +750,15 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
   // =========================================================================
   describe('Suite 13: Official EMVCo Standard PromptPay QR Engine', () => {
     it('TC-44: EMVCo PromptPay QR string structure and CRC-16 checksum calculation', () => {
-      // Test with studio hotline 0966369933 and ฿500 flat wash
-      const payload = generatePromptPayPayload('0966369933', 500);
+      // Test with studio phone 0661098306 and ฿1 flat test rate
+      const payload = generatePromptPayPayload('0661098306', 1);
 
       assert.strictEqual(payload.startsWith('000201010212'), true, 'Must start with EMVCo format & dynamic initiation');
       assert.strictEqual(payload.includes('A000000677010111'), true, 'Must contain official PromptPay AID');
-      assert.strictEqual(payload.includes('0066966369933'), true, 'Must format mobile to international 0066 standard');
+      assert.strictEqual(payload.includes('0066661098306'), true, 'Must format mobile to international 0066 standard');
       assert.strictEqual(payload.includes('5802TH'), true, 'Must specify Thailand country code');
       assert.strictEqual(payload.includes('5303764'), true, 'Must specify THB currency 764');
-      assert.strictEqual(payload.includes('5406500.00'), true, 'Must include exact ฿500.00 amount with correct length');
+      assert.strictEqual(payload.includes('54041.00'), true, 'Must include exact ฿1.00 amount with correct length');
 
       // Verify CRC16 checksum at the end
       const withoutChecksum = payload.slice(0, -4);
@@ -769,13 +769,13 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
     });
 
     it('TC-45: Dynamic amount formatting for Packages and National ID support', () => {
-      // 12 Sessions VIP Package @ ฿5,000 (length of 5000.00 is 7)
-      const pkgPayload = generatePromptPayPayload('096-636-9933', 5000);
-      assert.strictEqual(pkgPayload.includes('54075000.00'), true);
+      // 12 Sessions VIP Package @ ฿1 test mode (length of 1.00 is 4)
+      const pkgPayload = generatePromptPayPayload('066-109-8306', 1);
+      assert.strictEqual(pkgPayload.includes('54041.00'), true);
       assert.strictEqual(pkgPayload.slice(-4), crc16(pkgPayload.slice(0, -4)));
 
       // Static PromptPay QR (without amount)
-      const staticPayload = generatePromptPayPayload('0966369933');
+      const staticPayload = generatePromptPayPayload('0661098306');
       assert.strictEqual(staticPayload.startsWith('000201010211'), true, 'Static payload initiation method must be 11');
       assert.strictEqual(staticPayload.includes('54'), false, 'Static payload must not contain tag 54 amount');
 
@@ -786,12 +786,12 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
 
     it('TC-46: Official studio National ID 1800500068403 PromptPay payload generation', () => {
       assert.strictEqual(PROMPTPAY_ID, '1800500068403');
-      const payload500 = generatePromptPayPayload(PROMPTPAY_ID, 500);
+      const payload1 = generatePromptPayPayload(PROMPTPAY_ID, 1);
 
       // Verify Tag 29 subtag 02 with 13-digit National ID
-      assert.strictEqual(payload500.includes('02131800500068403'), true, 'Must encode 13-digit National ID under subtag 02');
-      assert.strictEqual(payload500.includes('5406500.00'), true, 'Must format ฿500.00');
-      assert.strictEqual(payload500.slice(-4), crc16(payload500.slice(0, -4)), 'Checksum must match CRC-16');
+      assert.strictEqual(payload1.includes('02131800500068403'), true, 'Must encode 13-digit National ID under subtag 02');
+      assert.strictEqual(payload1.includes('54041.00'), true, 'Must format ฿1.00');
+      assert.strictEqual(payload1.slice(-4), crc16(payload1.slice(0, -4)), 'Checksum must match CRC-16');
 
       const payload5000 = generatePromptPayPayload(PROMPTPAY_ID, 5000);
       assert.strictEqual(payload5000.includes('02131800500068403'), true);
@@ -807,7 +807,7 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
       assert.strictEqual(formatPromptPayId(), '1-8005-00068-40-3');
 
       // 10-digit mobile fallback test
-      assert.strictEqual(formatPromptPayId('0966369933'), '096-636-9933');
+      assert.strictEqual(formatPromptPayId('0661098306'), '066-109-8306');
     });
   });
 });

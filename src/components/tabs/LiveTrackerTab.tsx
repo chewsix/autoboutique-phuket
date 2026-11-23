@@ -79,11 +79,11 @@ export const LiveTrackerTab: React.FC = () => {
               <span>{isTh ? 'ติดต่อช่างผ่าน LINE' : 'LINE Master'}</span>
             </a>
             <a
-              href="tel:0966369933"
+              href="tel:0661098306"
               className="inline-flex items-center gap-1.5 rounded-xl bg-dark-850 border border-dark-700 hover:border-cyan-500 px-3 py-2 text-xs font-semibold text-gray-200 transition-all"
             >
               <PhoneCall className="h-3.5 w-3.5 text-cyan-400" />
-              <span>096 636 9933</span>
+              <span>066 109 8306</span>
             </a>
           </div>
         </div>

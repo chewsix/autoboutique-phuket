@@ -124,38 +124,38 @@ export interface SubOption {
   addPrice: number;
 }
 
-// Flat-rate Car Wash Sub-Options (฿500 Base + Optional Studio Add-ons)
+// Flat-rate Car Wash Sub-Options (Test Mode: Flat ฿1 for Live PromptPay Verification)
 export const SERVICE_SUB_OPTIONS: Record<ServiceType, SubOption[]> = {
   wash: [
-    { id: 'standard', labelTh: 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน', labelEn: 'Standard Wash & Vacuum', labelRu: 'Стандартная мойка и салон', addPrice: 0 },
-    { id: 'engine', labelTh: '+ ล้างห้องเครื่องขจัดคราบน้ำมัน (+฿500)', labelEn: '+ Engine Bay Degreasing (+฿500)', labelRu: '+ Мойка подкапотного (+฿500)', addPrice: 500 },
-    { id: 'wax', labelTh: '+ เคลือบสีสูตร Hydrophobic Deep Gloss (+฿400)', labelEn: '+ Hydrophobic Deep Gloss Wax (+฿400)', labelRu: '+ Гидрофобный воск (+฿400)', addPrice: 400 },
-    { id: 'glass', labelTh: '+ ขัดเคลือบกระจกไล่น้ำฝน (+฿300)', labelEn: '+ Rain Repellent Glass Coat (+฿300)', labelRu: '+ Антидождь стекла (+฿300)', addPrice: 300 },
+    { id: 'standard', labelTh: 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน (฿1)', labelEn: 'Standard Wash & Vacuum (฿1)', labelRu: 'Стандартная мойка и салон (฿1)', addPrice: 0 },
+    { id: 'engine', labelTh: '+ ล้างห้องเครื่องขจัดคราบน้ำมัน (ช่วงทดสอบ ฿0)', labelEn: '+ Engine Bay Degreasing (Test ฿0)', labelRu: '+ Мойка подкапотного (Тест ฿0)', addPrice: 0 },
+    { id: 'wax', labelTh: '+ เคลือบสีสูตร Hydrophobic Deep Gloss (ช่วงทดสอบ ฿0)', labelEn: '+ Hydrophobic Deep Gloss Wax (Test ฿0)', labelRu: '+ Гидрофобный воск (Тест ฿0)', addPrice: 0 },
+    { id: 'glass', labelTh: '+ ขัดเคลือบกระจกไล่น้ำฝน (ช่วงทดสอบ ฿0)', labelEn: '+ Rain Repellent Glass Coat (Test ฿0)', labelRu: '+ Антидождь стекла (Тест ฿0)', addPrice: 0 },
   ],
   interior: [
-    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน', labelEn: 'Standard Wash', labelRu: 'Стандартная мойка', addPrice: 0 },
+    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน (฿1)', labelEn: 'Standard Wash (฿1)', labelRu: 'Стандартная мойка (฿1)', addPrice: 0 },
   ],
   ceramic: [
-    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน', labelEn: 'Standard Wash', labelRu: 'Стандартная мойка', addPrice: 0 },
+    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน (฿1)', labelEn: 'Standard Wash (฿1)', labelRu: 'Стандартная мойка (฿1)', addPrice: 0 },
   ],
   ppf: [
-    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน', labelEn: 'Standard Wash', labelRu: 'Стандартная мойка', addPrice: 0 },
+    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน (฿1)', labelEn: 'Standard Wash (฿1)', labelRu: 'Стандартная мойка (฿1)', addPrice: 0 },
   ],
   wrap: [
-    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน', labelEn: 'Standard Wash', labelRu: 'Стандартная мойка', addPrice: 0 },
+    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน (฿1)', labelEn: 'Standard Wash (฿1)', labelRu: 'Стандартная мойка (฿1)', addPrice: 0 },
   ],
   film: [
-    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน', labelEn: 'Standard Wash', labelRu: 'Стандартная мойка', addPrice: 0 },
+    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน (฿1)', labelEn: 'Standard Wash (฿1)', labelRu: 'Стандартная мойка (฿1)', addPrice: 0 },
   ],
   accessories: [
-    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน', labelEn: 'Standard Wash', labelRu: 'Стандартная мойка', addPrice: 0 },
+    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน (฿1)', labelEn: 'Standard Wash (฿1)', labelRu: 'Стандартная мойка (฿1)', addPrice: 0 },
   ],
   maintenance: [
-    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน', labelEn: 'Standard Wash', labelRu: 'Стандартная мойка', addPrice: 0 },
+    { id: 'standard', labelTh: 'ล้างพรีเมียมมาตรฐาน (฿1)', labelEn: 'Standard Wash (฿1)', labelRu: 'Стандартная мойка (฿1)', addPrice: 0 },
   ],
 };
 
-// --- Official Studio Car Wash Packages & Vouchers ---
+// --- Official Studio Car Wash Packages & Vouchers (Test Rate ฿1) ---
 export const OFFICIAL_PACKAGES: PackageDeal[] = [
   {
     id: 'PKG-WASH-12',
@@ -164,14 +164,14 @@ export const OFFICIAL_PACKAGES: PackageDeal[] = [
     nameEn: 'Super Wash Pass (12 Sessions)',
     nameRu: 'Пакет премиум мойки 12 раз',
     totalUses: 12,
-    price: 5000,
-    singlePrice: 500,
-    savings: 1000,
+    price: 1,
+    singlePrice: 1,
+    savings: 0,
     validityDays: 365,
-    descriptionTh: 'ล้างรถพรีเมียม 12 ครั้ง เฉลี่ยเพียงครั้งละ ฿416 (ปกติครั้งละ ฿500 ประหยัดทันที ฿1,000)',
-    descriptionEn: '12 detailing washes @ ฿416/session (regular ฿500, save ฿1,000)',
+    descriptionTh: 'ล้างรถพรีเมียม 12 ครั้ง (ช่วงทดสอบระบบ: ฿1 เท่านั้น)',
+    descriptionEn: '12 detailing washes (System Test Rate: ฿1 only)',
     popular: true,
-    badgeTh: '🔥 สุดคุ้ม ประหยัด ฿1,000',
+    badgeTh: '🧪 โหมดทดสอบระบบ ฿1',
   },
   {
     id: 'PKG-WASH-6',
@@ -180,30 +180,30 @@ export const OFFICIAL_PACKAGES: PackageDeal[] = [
     nameEn: 'Mini Wash Pass (6 Sessions)',
     nameRu: 'Пакет мойки 6 раз',
     totalUses: 6,
-    price: 2700,
-    singlePrice: 500,
-    savings: 300,
+    price: 1,
+    singlePrice: 1,
+    savings: 0,
     validityDays: 180,
-    descriptionTh: 'ล้างรถพรีเมียม 6 ครั้ง เฉลี่ยครั้งละ ฿450 (ประหยัด ฿300 จากปกติ ฿3,000)',
-    descriptionEn: '6 detailing washes @ ฿450/session (save ฿300)',
+    descriptionTh: 'ล้างรถพรีเมียม 6 ครั้ง (ช่วงทดสอบระบบ: ฿1 เท่านั้น)',
+    descriptionEn: '6 detailing washes (System Test Rate: ฿1 only)',
     popular: false,
-    badgeTh: 'ประหยัด ฿300',
+    badgeTh: '🧪 โหมดทดสอบ ฿1',
   },
   {
     id: 'PKG-WASH-WAX-8',
     serviceKey: 'wash',
     nameTh: 'แพ็คเกจล้างรถ + เคลือบสีแว็กซ์ 8 ครั้ง (VIP Gloss Pass 8)',
-    nameEn: 'VIP Wash & Wax Pass (8 Sessions)',
-    nameRu: 'Пакет мойки с воском 8 раз',
+    nameEn: 'VIP Gloss Pass (8 Sessions)',
+    nameRu: 'Пакет мойка + гидрофобный воск 8 раз',
     totalUses: 8,
-    price: 5900,
-    singlePrice: 900,
-    savings: 1300,
+    price: 1,
+    singlePrice: 1,
+    savings: 0,
     validityDays: 365,
-    descriptionTh: 'ล้างสีดูดฝุ่น + เคลือบสีเงาฉ่ำ Hydrophobic 8 ครั้ง (ประหยัด ฿1,300)',
-    descriptionEn: '8 premium washes with hydrophobic gloss wax sealant',
+    descriptionTh: 'ล้างรถ 8 ครั้ง + ลงแว็กซ์สูตร Hydrophobic (ช่วงทดสอบระบบ: ฿1 เท่านั้น)',
+    descriptionEn: '8 washes + Hydrophobic wax (System Test Rate: ฿1 only)',
     popular: true,
-    badgeTh: '✨ แนะนำ เคลือบสีฉ่ำลึก',
+    badgeTh: '🧪 โหมดทดสอบ ฿1',
   },
 ];
 
@@ -597,7 +597,9 @@ export function verifyAdminPin(pin: string): boolean {
   return ADMIN_SECURITY_PINS.includes(cleanPin);
 }
 
-// Flat-Rate Car Wash Pricing: Standard Wash = ฿500 (No Car Size Differentiation)
+// Flat-Rate Car Wash Pricing (Testing Mode: Flat ฿1 for Live PromptPay Verification)
+export const BASE_WASH_PRICE = 1;
+
 export function calculatePrice(
   service: ServiceType = 'wash',
   arg2?: any,
@@ -611,20 +613,18 @@ export function calculatePrice(
     subOptionId = arg3;
   }
 
-  const BASE_PRICE = 500;
-  let add = 0;
-  if (subOptionId === 'engine') add = 500;
-  else if (subOptionId === 'wax') add = 400;
-  else if (subOptionId === 'glass') add = 300;
+  // System Test Rate: Flat ฿1 (All options and add-ons are ฿1 during test mode)
+  const BASE_PRICE = 1;
+  const add = 0;
 
   return {
     price: BASE_PRICE + add,
     duration: '1 ชม.',
     durationEn: '1 hr',
     durationRu: '1 час',
-    noteTh: 'ล้างสีดูดฝุ่นพรีเมียม pH 7 ปลอดภัยต่อสีรถ',
-    noteEn: '100% pH-Neutral foam detailing wash',
-    noteRu: 'Премиум детейлинг мойка с pH-нейтральной пеной',
+    noteTh: 'ล้างสีดูดฝุ่นพรีเมียม pH 7 ปลอดภัยต่อสีรถ (ช่วงทดสอบระบบ: ฿1 เท่านั้น)',
+    noteEn: '100% pH-Neutral foam detailing wash (Testing Rate: ฿1 only)',
+    noteRu: 'Премиум детейлинг мойка с pH-нейтральной пеной (Тест ฿1)',
   };
 }
 
@@ -788,7 +788,7 @@ export function generateGoogleCalendarUrl(booking: {
 
   const title = encodeURIComponent(`Autoboutique Phuket: ล้างรถพรีเมียม (${booking.carInfo})`);
   const details = encodeURIComponent(
-    `คิวนัดหมายล้างรถพรีเมียมกับ Autoboutique Phuket (C-Cube Automotive)\nบริการ: ${booking.service}\nรถยนต์: ${booking.carInfo}\nเวลา: ${booking.timeSlot} น.\nสถานที่: Autoboutique Phuket สตูดิโอ\nโทร: 096 636 9933`
+    `คิวนัดหมายล้างรถพรีเมียมกับ Autoboutique Phuket (C-Cube Automotive)\nบริการ: ${booking.service}\nรถยนต์: ${booking.carInfo}\nเวลา: ${booking.timeSlot} น.\nสถานที่: Autoboutique Phuket สตูดิโอ\nโทร: 066 109 8306`
   );
   const location = encodeURIComponent('Autoboutique Phuket (C-Cube Automotive), Phuket');
 
@@ -818,7 +818,7 @@ export function generateIcsCalendarContent(booking: {
     `DTSTART:${startIso}`,
     `DTEND:${endIso}`,
     `SUMMARY:Autoboutique Phuket: ล้างรถพรีเมียม (${booking.carInfo})`,
-    `DESCRIPTION:คิวนัดหมายล้างรถพรีเมียมกับ Autoboutique Phuket\\nบริการ: ${booking.service}\\nรถยนต์: ${booking.carInfo}\\nโทร: 096 636 9933`,
+    `DESCRIPTION:คิวนัดหมายล้างรถพรีเมียมกับ Autoboutique Phuket\\nบริการ: ${booking.service}\\nรถยนต์: ${booking.carInfo}\\nโทร: 066 109 8306`,
     'LOCATION:Autoboutique Phuket (C-Cube Automotive), Phuket',
     'STATUS:CONFIRMED',
     'END:VEVENT',

@@ -70,11 +70,11 @@ export const BayBookingTab: React.FC = () => {
   const [bookingDate, setBookingDate] = useState<string>(getTodayOrNextWorkingDate());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('08:30 - 10:00');
   const [cleanroomDropoffTime, setCleanroomDropoffTime] = useState<string>('09:00');
-  const [customerName, setCustomerName] = useState<string>('คุณกิตติธัช พัฒนสุข');
-  const [customerPhone, setCustomerPhone] = useState<string>('089-999-8877');
-  const [carBrand, setCarBrand] = useState<string>('Porsche');
-  const [carModel, setCarModel] = useState<string>('911 Carrera (992)');
-  const [licensePlate, setLicensePlate] = useState<string>('7กง 7777');
+  const [customerName, setCustomerName] = useState<string>('');
+  const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [carBrand, setCarBrand] = useState<string>('');
+  const [carModel, setCarModel] = useState<string>('');
+  const [licensePlate, setLicensePlate] = useState<string>('');
   const [province, setProvince] = useState<string>('ภูเก็ต');
   const [notes, setNotes] = useState<string>('');
 
