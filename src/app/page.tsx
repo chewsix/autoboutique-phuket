@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
+import QRCode from 'qrcode';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -262,6 +263,54 @@ export default function AutoboutiqueApp() {
   const [copiedAmount, setCopiedAmount] = useState(false);
   const [mobilePaymentTab, setMobilePaymentTab] = useState<'single_device' | 'qr_scan'>('single_device');
   const [hasOneTapTriggered, setHasOneTapTriggered] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [qrLoading, setQrLoading] = useState<boolean>(false);
+
+  // Guaranteed Auto-Dismissing Toast Notification System
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const showToast = useCallback((msg: string, duration: number = 2800) => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setToastMessage(msg);
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
+    }, duration);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  // Instant Client-Side QR Code Generation (Zero-Latency, No external network failure)
+  useEffect(() => {
+    if (promptPayModal.open && promptPayModal.amount > 0) {
+      setQrLoading(true);
+      const payload = generatePromptPayPayload(PROMPTPAY_ID, promptPayModal.amount);
+      QRCode.toDataURL(payload, {
+        width: 360,
+        margin: 1,
+        color: {
+          dark: '#0A0F1D',
+          light: '#FFFFFF',
+        },
+        errorCorrectionLevel: 'M',
+      })
+        .then((url) => {
+          setQrDataUrl(url);
+          setQrLoading(false);
+        })
+        .catch((err) => {
+          console.error('QR code generation error:', err);
+          setQrDataUrl(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(payload)}`);
+          setQrLoading(false);
+        });
+    }
+  }, [promptPayModal.open, promptPayModal.amount]);
 
   const slipFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -470,10 +519,11 @@ export default function AutoboutiqueApp() {
         document.body.classList.remove('theme-light');
       }
     }
-    setToastMessage(
+    showToast(
       isTh
         ? (nextTheme === 'light' ? '☀️ สลับสู่โหมดสว่าง (Executive Alabaster)' : '🌙 สลับสู่โหมดมืด (Midnight Obsidian)')
-        : (nextTheme === 'light' ? '☀️ Switched to Light Mode' : '🌙 Switched to Dark Mode')
+        : (nextTheme === 'light' ? '☀️ Switched to Light Mode' : '🌙 Switched to Dark Mode'),
+      2500
     );
   };
 
@@ -564,12 +614,13 @@ export default function AutoboutiqueApp() {
   // Copy PromptPay Number (for Mobile & Desktop)
   const handleCopyPromptPay = () => {
     try {
-      navigator.clipboard.writeText(PROMPTPAY_ID);
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(PROMPTPAY_ID);
+      }
       setCopiedPromptPay(true);
-      setToastMessage(isTh ? `คัดลอกเลขพร้อมเพย์ ${formatPromptPayId(PROMPTPAY_ID)} แล้ว` : `Copied PromptPay ID: ${PROMPTPAY_ID}`);
       setTimeout(() => setCopiedPromptPay(false), 2500);
+      showToast(isTh ? `คัดลอกเลขพร้อมเพย์ ${formatPromptPayId(PROMPTPAY_ID)} แล้ว` : `Copied PromptPay ID: ${PROMPTPAY_ID}`, 2500);
     } catch {
-      // Fallback prompt
       window.prompt(isTh ? 'คัดลอกเลขพร้อมเพย์:' : 'Copy PromptPay ID:', PROMPTPAY_ID);
     }
   };
@@ -577,55 +628,56 @@ export default function AutoboutiqueApp() {
   // Copy Exact Amount
   const handleCopyAmount = (amount: number) => {
     try {
-      navigator.clipboard.writeText(amount.toFixed(2));
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(amount.toFixed(2));
+      }
       setCopiedAmount(true);
-      setToastMessage(isTh ? `คัดลอกยอดเงิน ฿${amount.toLocaleString()}.00 แล้ว` : `Copied Amount: ฿${amount.toLocaleString()}.00`);
       setTimeout(() => setCopiedAmount(false), 2500);
+      showToast(isTh ? `คัดลอกยอดเงิน ฿${amount.toLocaleString()}.00 แล้ว` : `Copied Amount: ฿${amount.toLocaleString()}.00`, 2500);
     } catch {
       window.prompt(isTh ? 'คัดลอกยอดเงิน:' : 'Copy amount:', amount.toFixed(2));
     }
   };
 
-  // Download QR Code Image to Device (Crucial for Mobile Banking app scan from gallery)
-  const handleDownloadQr = async (amount: number) => {
-    const payload = generatePromptPayPayload(PROMPTPAY_ID, amount);
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(payload)}`;
+  // Download QR Code Image to Device (Instant offline base64 download)
+  const handleDownloadQr = (amount: number) => {
+    if (!qrDataUrl) {
+      showToast(isTh ? 'กำลังสร้างภาพ QR Code กรุณารอสักครู่' : 'Generating QR Code...', 2000);
+      return;
+    }
     try {
-      const res = await fetch(qrUrl);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = blobUrl;
+      a.href = qrDataUrl;
       a.download = `autoboutique-promptpay-${amount}thb.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(blobUrl);
-      setToastMessage(isTh ? 'บันทึกภาพ QR Code ลงเครื่องเรียบร้อยแล้ว' : 'QR Code image saved to device');
+      showToast(isTh ? '📥 บันทึกภาพ QR Code ลงเครื่องเรียบร้อยแล้ว' : '📥 QR Code image saved to device', 2500);
     } catch {
-      window.open(qrUrl, '_blank');
+      window.open(qrDataUrl, '_blank');
     }
   };
 
-  // 1-Tap Mobile Pay: Simultaneously saves QR image to album and copies PromptPay ID to clipboard
-  const handleOneTapMobilePay = async (amount: number) => {
+  // 1-Tap Mobile Pay: Saves QR image to album and copies PromptPay ID
+  const handleOneTapMobilePay = (amount: number) => {
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(PROMPTPAY_ID);
+        navigator.clipboard.writeText(PROMPTPAY_ID);
       }
       setCopiedPromptPay(true);
-      setTimeout(() => setCopiedPromptPay(false), 3500);
+      setTimeout(() => setCopiedPromptPay(false), 3000);
     } catch {
       // fallback
     }
 
-    await handleDownloadQr(amount);
+    handleDownloadQr(amount);
     setHasOneTapTriggered(true);
 
-    setToastMessage(
+    showToast(
       isTh
-        ? `📥 บันทึกรูป QR ลงเครื่อง + คัดลอกเลขพร้อมเพย์ ${formatPromptPayId(PROMPTPAY_ID)} สำเร็จแล้ว!`
-        : `📥 Saved QR to album & copied PromptPay ID!`
+        ? `📥 บันทึกรูป QR และคัดลอกเลขพร้อมเพย์ ${formatPromptPayId(PROMPTPAY_ID)} สำเร็จแล้ว!`
+        : `📥 Saved QR to album & copied PromptPay ID!`,
+      3000
     );
   };
 
@@ -634,10 +686,11 @@ export default function AutoboutiqueApp() {
     if (typeof window !== 'undefined') {
       window.location.href = scheme;
       setTimeout(() => {
-        setToastMessage(
+        showToast(
           isTh
             ? `กำลังเปิดแอป ${bankNameTh}... หากไม่ขึ้นอัตโนมัติ กรุณาสลับไปเปิดแอปธนาคารที่ติดตั้งไว้`
-            : `Opening ${bankNameTh}... If it doesn't open, switch to your banking app directly.`
+            : `Opening ${bankNameTh}... If it doesn't open, switch to your banking app directly.`,
+          3500
         );
       }, 600);
     }
@@ -750,12 +803,12 @@ export default function AutoboutiqueApp() {
       status: 'confirmed',
     });
 
-    setToastMessage(
+    showToast(
       isTh
         ? `✅ บันทึกนัดหมายสำเร็จ! รหัส ${newBookingId} ส่งการแจ้งเตือนยืนยันเรียบร้อย`
-        : `Appointment Confirmed #${newBookingId}! Notification dispatched.`
+        : `Appointment Confirmed #${newBookingId}! Notification dispatched.`,
+      4500
     );
-    setTimeout(() => setToastMessage(null), 5000);
   };
 
   // Handle Purchasing New Package Pass
@@ -801,12 +854,12 @@ export default function AutoboutiqueApp() {
       confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
     } catch (e) {}
 
-    setToastMessage(
+    showToast(
       isTh
         ? `🎉 เปิดใช้งานแพ็คเกจ ${pkgDeal.nameTh} สำเร็จ! ได้รับโควตา ${pkgDeal.totalUses} ครั้งเรียบร้อย`
-        : `Package ${pkgDeal.nameEn} activated successfully!`
+        : `Package ${pkgDeal.nameEn} activated successfully!`,
+      4500
     );
-    setTimeout(() => setToastMessage(null), 5000);
   };
 
   // Admin PIN Auth
@@ -856,16 +909,16 @@ export default function AutoboutiqueApp() {
       updateRemoteBookingStatus(id, newStatus);
     }
 
-    setToastMessage(
-      isTh ? `🔄 อัปเดตสถานะคิว ${id} และส่งแจ้งเตือน LINE เรียบร้อย` : `Stage updated for ${id}`
+    showToast(
+      isTh ? `🔄 อัปเดตสถานะคิว ${id} และส่งแจ้งเตือน LINE เรียบร้อย` : `Stage updated for ${id}`,
+      3000
     );
-    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // Admin Create Walk-in (Flat ฿500 Base Rate)
   const handleCreateWalkIn = () => {
     if (!walkInName.trim() || !walkInCar.trim()) {
-      setToastMessage(isTh ? 'กรุณากรอกชื่อและทะเบียนรถ' : 'Please fill all fields');
+      showToast(isTh ? 'กรุณากรอกชื่อและทะเบียนรถ' : 'Please fill all fields', 2500);
       return;
     }
     const newId = `BK-${String(bookings.length + 1).padStart(3, '0')}`;
@@ -906,10 +959,10 @@ export default function AutoboutiqueApp() {
     setWalkInPhone('');
     setWalkInCar('');
 
-    setToastMessage(
-      isTh ? `🚗 บันทึกคิว Walk-in ${newId} (฿${priceResult.price}) เรียบร้อย` : 'Walk-in booking created'
+    showToast(
+      isTh ? `🚗 บันทึกคิว Walk-in ${newId} (฿${priceResult.price}) เรียบร้อย` : 'Walk-in booking created',
+      2500
     );
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
   // Admin Cancel Booking with 15-Minute Policy Enforcement
@@ -937,14 +990,14 @@ export default function AutoboutiqueApp() {
     updateRemoteBookingStatus(cancelModalBooking.id, 'cancelled');
     setCancelModalBooking(null);
 
-    setToastMessage(
+    showToast(
       policyResult.isPackageBooking
         ? policyResult.messageTh
         : isTh
         ? `🗑️ ยกเลิกคิว ${cancelModalBooking.id} เรียบร้อย`
-        : 'Booking cancelled'
+        : 'Booking cancelled',
+      3500
     );
-    setTimeout(() => setToastMessage(null), 4000);
   };
 
   // Admin Edit Package Quota (+1 or -1)
@@ -962,8 +1015,7 @@ export default function AutoboutiqueApp() {
         return p;
       })
     );
-    setToastMessage(isTh ? '✅ อัปเดตโควตาแพ็คเกจเรียบร้อย' : 'Package quota adjusted');
-    setTimeout(() => setToastMessage(null), 2500);
+    showToast(isTh ? '✅ อัปเดตโควตาแพ็คเกจเรียบร้อย' : 'Package quota adjusted', 2500);
   };
 
   // Admin Cancel Package
@@ -972,8 +1024,7 @@ export default function AutoboutiqueApp() {
     setCustomerPackages((prev) =>
       prev.map((p) => (p.id === packageId ? { ...p, status: 'cancelled' } : p))
     );
-    setToastMessage(isTh ? '🗑️ ยกเลิกแพ็คเกจเรียบร้อย' : 'Package cancelled');
-    setTimeout(() => setToastMessage(null), 2500);
+    showToast(isTh ? '🗑️ ยกเลิกแพ็คเกจเรียบร้อย' : 'Package cancelled', 2500);
   };
 
   // Admin Toggle Slot Lock
@@ -981,12 +1032,11 @@ export default function AutoboutiqueApp() {
     const isLocked = lockedSlots.some((l) => l.date === date && l.slot === slot);
     if (isLocked) {
       setLockedSlots((prev) => prev.filter((l) => !(l.date === date && l.slot === slot)));
-      setToastMessage(isTh ? `ปลดล็อคช่องบริการ ${slot} เรียบร้อย` : `Unlocked slot ${slot}`);
+      showToast(isTh ? `ปลดล็อคช่องบริการ ${slot} เรียบร้อย` : `Unlocked slot ${slot}`, 2500);
     } else {
       setLockedSlots((prev) => [...prev, { date, slot }]);
-      setToastMessage(isTh ? `ล็อคช่องบริการ ${slot} เรียบร้อย` : `Locked slot ${slot}`);
+      showToast(isTh ? `ล็อคช่องบริการ ${slot} เรียบร้อย` : `Locked slot ${slot}`, 2500);
     }
-    setTimeout(() => setToastMessage(null), 2500);
   };
 
   // Admin Daily Financial Metrics
@@ -1077,11 +1127,27 @@ export default function AutoboutiqueApp() {
         theme === 'light' ? 'theme-light bg-[#F8FAFC] text-slate-900' : 'theme-dark bg-[#080C14] text-slate-100'
       } flex flex-col items-center ambient-cobalt-glow selection:bg-blue-600 selection:text-white transition-colors duration-300`}
     >
-      {/* Toast Notification Banner */}
+      {/* Toast Notification Banner (Auto-dismissing & Interactive Dismiss) */}
       {toastMessage && (
-        <div className="fixed top-5 z-50 px-5 py-3 rounded-full bg-slate-900/95 border border-blue-500/40 text-blue-100 text-xs md:text-sm font-medium shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2.5">
-          <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
-          <span>{toastMessage}</span>
+        <div
+          onClick={() => setToastMessage(null)}
+          className="fixed top-4 z-[70] max-w-sm sm:max-w-md mx-auto px-4 py-2.5 rounded-full bg-slate-900/95 text-blue-100 border border-blue-500/50 text-xs sm:text-sm font-medium shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2.5 cursor-pointer transition hover:scale-105 active:scale-95"
+          role="status"
+          aria-live="polite"
+        >
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+          <span className="truncate">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setToastMessage(null);
+            }}
+            className="ml-auto text-slate-400 hover:text-white p-0.5 rounded-full"
+            aria-label="Close notification"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -1874,7 +1940,7 @@ export default function AutoboutiqueApp() {
                           type="button"
                           onClick={() => {
                             setView('booking');
-                            setToastMessage(isTh ? 'เลือกวันและเวลานัดหมายเพื่อใช้สิทธิ์แพ็คเกจ' : 'Select schedule to redeem pass');
+                            showToast(isTh ? 'เลือกวันและเวลานัดหมายเพื่อใช้สิทธิ์แพ็คเกจ' : 'Select schedule to redeem pass', 3500);
                           }}
                           className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition"
                         >
@@ -2252,212 +2318,163 @@ export default function AutoboutiqueApp() {
             PROMPTPAY & SLIP VERIFICATION MODAL (Optimized for 1-Device Mobile & Desktop)
             ========================================================================= */}
         {promptPayModal.open && (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fade-in">
-            <div className="luxe-panel rounded-2xl w-full max-w-lg p-4 sm:p-5 space-y-3.5 max-h-[94vh] overflow-y-auto">
+          <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in ${
+            theme === 'light' ? 'bg-slate-900/40 backdrop-blur-md' : 'bg-black/80 backdrop-blur-md'
+          }`}>
+            <div className={`rounded-2xl w-full max-w-lg p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl transition-all ${
+              theme === 'light' ? 'bg-white border border-slate-200 text-slate-900' : 'luxe-panel text-white'
+            }`}>
               {/* Header */}
-              <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-blue-900/60 border border-blue-500/40 flex items-center justify-center text-blue-300">
-                    <Smartphone className="w-4 h-4" />
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-500">
+                    <QrCode className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">
-                      {isTh ? 'ระบบชำระเงินพร้อมเพย์ทางการ' : 'PROMPTPAY OFFICIAL SETTLEMENT'}
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+                      {isTh ? 'สแกนพร้อมเพย์ทางการ (EMVCo PromptPay)' : 'OFFICIAL PROMPTPAY SETTLEMENT'}
                     </span>
-                    <h3 className="text-sm sm:text-base font-bold text-white">{promptPayModal.title}</h3>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">{promptPayModal.title}</h3>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 })}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Mode Switcher Tabs (จบในเครื่องเดียว vs สแกนข้ามเครื่อง) */}
-              <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setMobilePaymentTab('single_device')}
-                  className={`py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition ${
-                    mobilePaymentTab === 'single_device'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Smartphone className="w-3.5 h-3.5" />
-                  <span>{isTh ? '📱 จบในเครื่องนี้ (แอปธนาคาร)' : '📱 Pay on this Phone'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobilePaymentTab('qr_scan')}
-                  className={`py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition ${
-                    mobilePaymentTab === 'qr_scan'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <QrCode className="w-3.5 h-3.5" />
-                  <span>{isTh ? '🖥️ สแกน QR ข้ามเครื่อง' : '🖥️ Scan QR (2nd Phone)'}</span>
-                </button>
-              </div>
-
-              {/* Timer Bar */}
-              <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{isTh ? 'เวลานับถอยหลังการชำระเงิน' : 'Time Remaining'}:</span>
-                </span>
-                <span className="font-mono font-bold text-amber-400 bg-amber-950/60 px-2.5 py-0.5 rounded-md border border-amber-800/40">
-                  {formatTimer(paymentCountdown)}
-                </span>
-              </div>
-
-              {/* TAB 1: 1-DEVICE MOBILE FLOW */}
-              {mobilePaymentTab === 'single_device' ? (
-                <div className="space-y-3">
-                  {/* STEP 1: PREPARE PAYMENT (Save QR / Copy National ID) */}
-                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
-                        {isTh ? 'บันทึก QR หรือคัดลอกเลขพร้อมเพย์' : 'Step 1: Save QR or Copy ID'}
-                      </span>
-                      <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
-                        {isTh ? 'ยอดชำระ ฿' + promptPayModal.amount.toLocaleString() + '.00' : '฿' + promptPayModal.amount.toLocaleString()}
-                      </span>
-                    </div>
-
-                    {/* Giant 1-Tap Action Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleOneTapMobilePay(promptPayModal.amount)}
-                      className="w-full py-3 px-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-900/40 transition active:scale-[0.99] flex flex-col items-center justify-center gap-0.5"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Download className="w-4 h-4 text-sky-200" />
-                        <span>
-                          {hasOneTapTriggered
-                            ? (isTh ? '✓ บันทึกรูปและคัดลอกเรียบร้อยแล้ว (กดซ้ำได้)' : '✓ Saved & Copied (Tap to repeat)')
-                            : (isTh ? '📥 บันทึกรูป QR ลงอัลบั้ม + คัดลอกเลขพร้อมเพย์ (คลิกเดียว)' : '📥 Save QR Image & Copy PromptPay ID')}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-blue-200/80 font-normal">
-                        {isTh ? 'เซฟรูปลงเครื่อง ➔ สแกนจากอัลบั้มในแอปธนาคาร หรือวางเลขพร้อมเพย์ได้ทันที' : 'Downloads QR & copies 13-digit ID'}
-                      </span>
-                    </button>
-
-                    {/* PromptPay National ID Details with 1-click copy */}
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
-                      <div className="min-w-0 pr-2">
-                        <div className="text-[10px] text-slate-400 font-medium">{isTh ? 'เลขประจำตัวประชาชน (พร้อมเพย์)' : 'PromptPay ID'}</div>
-                        <div className="font-mono font-bold text-white text-sm sm:text-base tracking-wider">
-                          {formatPromptPayId(PROMPTPAY_ID)}
-                        </div>
-                        <div className="text-[10px] text-slate-400 truncate">{PROMPTPAY_NAME}</div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={handleCopyPromptPay}
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-[11px] font-semibold transition border border-slate-700 flex items-center gap-1"
-                        >
-                          {copiedPromptPay ? (
-                            <>
-                              <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-                              <span className="text-emerald-400">{isTh ? 'คัดลอกแล้ว' : 'Copied'}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5" />
-                              <span>{isTh ? 'คัดลอกเลข' : 'Copy'}</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* STEP 2: OPEN BANKING APP LAUNCHER */}
-                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">2</span>
-                        {isTh ? 'แตะเปิดแอปธนาคารในเครื่องนี้' : 'Step 2: Open Bank App'}
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {isTh ? 'เลือกธนาคารของคุณ' : 'Select Bank'}
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      {isTh
-                        ? 'แตะเปิดแอปธนาคารด้านล่าง ➔ ไปที่เมนู "สแกน" ➔ เลือกรูป QR จากอัลบั้ม (รูปจะอยู่บนสุด):'
-                        : 'Tap to launch your bank app ➔ Select scan from album:'}
-                    </p>
-
-                    {/* Bank App Quick Launchers Grid */}
-                    <div className="grid grid-cols-3 gap-2">
-                      {THAI_BANK_APPS.map((bank) => (
-                        <button
-                          key={bank.id}
-                          type="button"
-                          onClick={() => handleOpenBankApp(bank.scheme, bank.bankNameTh)}
-                          className={`p-2 sm:p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1 transition active:scale-95 ${bank.bgClass} ${bank.borderClass}`}
-                        >
-                          <Landmark className={`w-4 h-4 ${bank.textClass}`} />
-                          <span className="text-[11px] font-bold text-white leading-tight">{bank.name}</span>
-                          <span className="text-[9px] text-slate-400">{bank.bankNameTh}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {formatTimer(paymentCountdown)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 })}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              ) : (
-                /* TAB 2: QR SCAN FOR 2ND DEVICE / PC */
-                <div className="p-3.5 sm:p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
-                  <p className="text-xs text-slate-300">
-                    {isTh
-                      ? 'เปิดแอปธนาคารบนโทรศัพท์อีกเครื่อง แล้วสแกน QR Code นี้เพื่อชำระเงิน'
-                      : 'Scan this QR Code with your bank app on another device'}
-                  </p>
-                  <div className="w-48 h-48 mx-auto bg-white p-2.5 rounded-2xl shadow-xl flex items-center justify-center border-2 border-blue-500/20">
+              </div>
+
+              {/* Centerpiece: High-Contrast White PromptPay QR Card */}
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-md text-slate-900 text-center space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2 px-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black tracking-wider text-blue-800 font-sans">THAI QR PAYMENT</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                      พร้อมเพย์
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse">
+                    โหมดทดสอบ ฿{promptPayModal.amount.toFixed(2)}
+                  </span>
+                </div>
+
+                {/* QR Code Image - Instant Client-Side Generated */}
+                <div className="w-52 h-52 sm:w-56 sm:h-56 mx-auto bg-white p-2 rounded-xl flex items-center justify-center">
+                  {qrLoading || !qrDataUrl ? (
+                    <div className="flex flex-col items-center gap-2 text-slate-400">
+                      <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+                      <span className="text-xs">กำลังสร้าง QR Code...</span>
+                    </div>
+                  ) : (
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                        generatePromptPayPayload(PROMPTPAY_ID, promptPayModal.amount)
-                      )}`}
+                      src={qrDataUrl}
                       alt="PromptPay EMVCo QR Code 1800500068403"
                       className="w-full h-full object-contain"
                     />
-                  </div>
+                  )}
+                </div>
 
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-left">
-                    <div>
-                      <div className="font-mono font-bold text-white text-sm sm:text-base">
-                        {formatPromptPayId(PROMPTPAY_ID)}
-                      </div>
-                      <div className="text-[10px] text-slate-400">{PROMPTPAY_NAME}</div>
+                {/* Account & Amount Info Strip */}
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-left flex items-center justify-between">
+                  <div className="min-w-0 pr-2">
+                    <div className="text-[10px] text-slate-500 font-medium">
+                      {isTh ? 'เลขประจำตัวประชาชน (พร้อมเพย์)' : 'PromptPay ID'}
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs text-slate-400 block">{isTh ? 'ยอดชำระ' : 'Amount'}</span>
-                      <span className="text-base font-extrabold text-blue-400 font-sans">
-                        ฿{promptPayModal.amount.toLocaleString()}.00
-                      </span>
+                    <div className="font-mono font-bold text-slate-900 text-sm sm:text-base tracking-wider">
+                      {formatPromptPayId(PROMPTPAY_ID)}
                     </div>
+                    <div className="text-[10px] text-slate-600 truncate">{PROMPTPAY_NAME}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[10px] text-slate-500 block">{isTh ? 'ยอดชำระ' : 'Amount'}</span>
+                    <span className="text-base sm:text-lg font-black text-blue-600 font-mono">
+                      ฿{promptPayModal.amount.toFixed(2)}
+                    </span>
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* STEP 3: SLIP UPLOAD & VERIFICATION */}
-              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">3</span>
-                    {isTh ? 'สลับกลับมาหน้านี้ ➔ แนบสลิปหลักฐาน' : 'Step 3: Upload Payment Slip'}
+              {/* 1-Tap Action Buttons (Save QR to Photos & Copy ID) */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOneTapMobilePay(promptPayModal.amount)}
+                  className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/30"
+                >
+                  <Download className="w-4 h-4 text-sky-200 shrink-0" />
+                  <span>
+                    {hasOneTapTriggered
+                      ? isTh ? '✓ บันทึกภาพแล้ว (กดซ้ำได้)' : '✓ Saved to Photos'
+                      : isTh ? '📥 บันทึกรูป QR ลงเครื่อง' : '📥 Save QR Image'}
                   </span>
-                  {slipVerified && <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> ตรวจสอบสลิปแล้ว</span>}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyPromptPay}
+                  className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  {copiedPromptPay ? (
+                    <>
+                      <CheckCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="text-emerald-400">{isTh ? 'คัดลอกเลขแล้ว' : 'Copied'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 shrink-0" />
+                      <span>{isTh ? 'คัดลอกเลขพร้อมเพย์' : 'Copy ID'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Bank App Launchers Grid (Mobile Deep-Links) */}
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-blue-400 flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-blue-500" />
+                    {isTh ? 'เปิดแอปธนาคารในเครื่องนี้เพื่อโอน' : 'Launch Banking App'}
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    {isTh ? 'เลือกธนาคาร' : 'Tap to Open'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {THAI_BANK_APPS.map((bank) => (
+                    <button
+                      key={bank.id}
+                      type="button"
+                      onClick={() => handleOpenBankApp(bank.scheme, bank.bankNameTh)}
+                      className={`p-2 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition active:scale-95 ${bank.bgClass} ${bank.borderClass}`}
+                    >
+                      <Landmark className={`w-3.5 h-3.5 ${bank.textClass}`} />
+                      <span className="text-[10px] font-bold text-white leading-tight">{bank.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Slip Upload & Verification Section */}
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-blue-400 flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5 text-blue-500" />
+                    {isTh ? 'แนบสลิปหลักฐานการโอนเงิน' : 'Upload Payment Slip'}
+                  </span>
+                  {slipVerified && (
+                    <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {isTh ? 'แนบสลิปแล้ว' : 'Slip Attached'}
+                    </span>
+                  )}
                 </div>
 
                 <input
@@ -2471,26 +2488,20 @@ export default function AutoboutiqueApp() {
                 />
 
                 {uploadedSlipPreview ? (
-                  <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       <img
                         src={uploadedSlipPreview}
                         alt="Slip Preview"
-                        className="w-12 h-14 rounded-lg object-cover border border-slate-700 shrink-0"
+                        className="w-10 h-12 rounded-lg object-cover border border-slate-300 dark:border-slate-700 shrink-0"
                       />
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-white truncate">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
                           {isTh ? 'สลิปโอนเงินพร้อมเพย์' : 'Payment Slip'}
                         </p>
-                        <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
-                          {slipChecking ? (
-                            isTh ? 'กำลังปรับขนาดและตรวจสอบ...' : 'Optimizing...'
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>{isTh ? 'สลิปพร้อมยืนยันการจอง' : 'Ready to Submit'}</span>
-                            </>
-                          )}
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{isTh ? 'สลิปพร้อมยืนยันการจอง' : 'Ready to Submit'}</span>
                         </p>
                       </div>
                     </div>
@@ -2500,7 +2511,7 @@ export default function AutoboutiqueApp() {
                         setUploadedSlipPreview(null);
                         setSlipVerified(false);
                       }}
-                      className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-800 transition shrink-0"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -2508,21 +2519,21 @@ export default function AutoboutiqueApp() {
                 ) : (
                   <div
                     onClick={() => slipFileInputRef.current?.click()}
-                    className="p-3.5 sm:p-4 rounded-xl border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-900/60 cursor-pointer text-center space-y-1 transition active:scale-[0.99]"
+                    className="p-3 sm:p-3.5 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 bg-white dark:bg-slate-900/60 cursor-pointer text-center space-y-1 transition active:scale-[0.99]"
                   >
-                    <Upload className="w-5 h-5 text-blue-400 mx-auto" />
-                    <p className="text-xs font-semibold text-slate-200">
-                      {isTh ? 'แตะที่นี่เพื่อเลือกสลิปจากอัลบั้ม (รูปภาพล่าสุด)' : 'Tap to select slip from photo album'}
+                    <Upload className="w-4 h-4 text-blue-500 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {isTh ? 'แตะที่นี่เพื่อเลือกสลิปจากอัลบั้ม' : 'Tap to select slip from photo album'}
                     </p>
-                    <p className="text-[10px] text-slate-400">
-                      {isTh ? 'เมื่อโอนในแอปธนาคารเสร็จ สลิปจะอยู่บนสุดของอัลบั้ม แตะเลือกได้ทันที' : 'Select the transfer slip from your camera roll'}
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      {isTh ? 'เมื่อโอนในแอปธนาคารเสร็จ สลิปจะอยู่บนสุดของอัลบั้ม' : 'Select transfer slip from camera roll'}
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* STEP 4: CONFIRM BUTTON */}
-              <div className="pt-1">
+              {/* Action Buttons: Confirm & Test Shortcut */}
+              <div className="space-y-2 pt-1">
                 <button
                   type="button"
                   disabled={!slipVerified}
@@ -2533,18 +2544,34 @@ export default function AutoboutiqueApp() {
                       handleCompletePackagePurchase(promptPayModal.pkgId);
                     }
                   }}
-                  className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 ${
+                  className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 ${
                     slipVerified
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg shadow-blue-900/40 cursor-pointer active:scale-[0.99]'
-                      : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-300 dark:border-slate-700'
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>
                     {!slipVerified
-                      ? isTh ? 'กรุณาแนบสลิปเพื่อปลดล็อกการยืนยัน' : 'Attach Slip to Unlock'
+                      ? isTh ? 'กรุณาแนบสลิปเพื่อยืนยันการจอง' : 'Attach Slip to Unlock'
                       : isTh ? 'ยืนยันการจองคิว VIP และแจ้งเตือนสตูดิโอ' : 'Confirm & Notify Studio'}
                   </span>
+                </button>
+
+                {/* Instant Test Mode Bypass Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (promptPayModal.type === 'booking') {
+                      handleCompleteBookingPayment('promptpay');
+                    } else if (promptPayModal.type === 'package' && promptPayModal.pkgId) {
+                      handleCompletePackagePurchase(promptPayModal.pkgId);
+                    }
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-blue-300 text-xs font-semibold transition active:scale-[0.99] flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{isTh ? '🧪 ยืนยันการจองทันที (โหมดทดสอบระบบ ฿1 ไม่ต้องแนบสลิป)' : '🧪 Instant Test Confirm (฿1 Test Mode)'}</span>
                 </button>
               </div>
             </div>
@@ -2826,8 +2853,7 @@ export default function AutoboutiqueApp() {
                     navigator.clipboard.writeText(
                       `Autoboutique Detailing Work Order #${lastConfirmedBooking.id} | ${lastConfirmedBooking.carInfo} | ${lastConfirmedBooking.date} ${lastConfirmedBooking.timeSlot} น.`
                     );
-                    setToastMessage(isTh ? 'คัดลอกข้อมูลใบเสร็จเรียบร้อย' : 'Copied to clipboard');
-                    setTimeout(() => setToastMessage(null), 2500);
+                    showToast(isTh ? 'คัดลอกข้อมูลใบเสร็จเรียบร้อย' : 'Copied to clipboard', 2500);
                   }}
                   className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5"
                 >
