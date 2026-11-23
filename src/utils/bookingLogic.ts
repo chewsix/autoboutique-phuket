@@ -586,10 +586,15 @@ export function formatBookingDate(dateStr: string, lang: Language = 'th'): strin
 export const TIME_SLOTS = ['08:30', '09:30', '10:30', '13:00', '14:00', '15:30'];
 
 // Admin Security PINs
-export const ADMIN_SECURITY_PINS = ['8888', '1234'];
+// Can be customized via NEXT_PUBLIC_ADMIN_PIN in Vercel environment variables
+const ENV_ADMIN_PIN = typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_ADMIN_PIN : undefined;
+export const ADMIN_SECURITY_PINS = ENV_ADMIN_PIN ? [ENV_ADMIN_PIN.trim(), '8888', '1234'] : ['8888', '1234'];
 
 export function verifyAdminPin(pin: string): boolean {
-  return ADMIN_SECURITY_PINS.includes(pin.trim());
+  if (!pin || typeof pin !== 'string') return false;
+  const cleanPin = pin.trim();
+  if (ENV_ADMIN_PIN && cleanPin === ENV_ADMIN_PIN.trim()) return true;
+  return ADMIN_SECURITY_PINS.includes(cleanPin);
 }
 
 // Flat-Rate Car Wash Pricing: Standard Wash = ฿500 (No Car Size Differentiation)

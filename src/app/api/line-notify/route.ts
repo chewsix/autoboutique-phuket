@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Internal secret to protect against external bot abuse
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET;
+
+// Simple sliding window in-memory rate limiter (max 10 requests / 60 seconds per IP)
+const rateLimitMap = new Map<string, number[]>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 10;
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const timestamps = (rateLimitMap.get(ip) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (timestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+    return true;
+  }
+  timestamps.push(now);
+  rateLimitMap.set(ip, timestamps);
+  return false;
+}
+
 interface LineNotifyRequest {
   type?: 'booking_confirmed' | 'stage_update';
   bookingId: string;
@@ -18,6 +37,28 @@ interface LineNotifyRequest {
 }
 
 export async function POST(req: NextRequest) {
+  // 1. Origin & Secret Verification
+  const authHeader = req.headers.get('x-internal-secret');
+  const secFetchSite = req.headers.get('sec-fetch-site');
+  const origin = req.headers.get('origin');
+  const host = req.headers.get('host');
+
+  const isSameOrigin = secFetchSite === 'same-origin' || (Boolean(origin && host && origin.includes(host)));
+  const hasValidSecret = Boolean(INTERNAL_API_SECRET && authHeader === INTERNAL_API_SECRET);
+
+  if (INTERNAL_API_SECRET && !hasValidSecret && !isSameOrigin) {
+    return NextResponse.json({ success: false, error: 'Unauthorized: Access forbidden' }, { status: 401 });
+  }
+
+  // 2. IP Rate Limiting Guard
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'default-client';
+  if (isRateLimited(clientIp)) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please wait before requesting another notification.' },
+      { status: 429 }
+    );
+  }
+
   try {
     const body: LineNotifyRequest = await req.json();
     const {
@@ -36,6 +77,17 @@ export async function POST(req: NextRequest) {
       stagePhotoUrl,
       lineUserId,
     } = body;
+
+    // 3. Strict Payload Sanitization & Validation
+    if (!bookingId || typeof bookingId !== 'string' || bookingId.length > 64) {
+      return NextResponse.json({ success: false, error: 'Invalid booking ID parameter' }, { status: 400 });
+    }
+    if (!customerName || typeof customerName !== 'string' || customerName.length > 100) {
+      return NextResponse.json({ success: false, error: 'Invalid customer name parameter' }, { status: 400 });
+    }
+    if (!phone || typeof phone !== 'string' || phone.length > 30) {
+      return NextResponse.json({ success: false, error: 'Invalid phone number parameter' }, { status: 400 });
+    }
 
     const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     const targetUserId =

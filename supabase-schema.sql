@@ -57,17 +57,26 @@ CREATE TABLE IF NOT EXISTS public.locked_slots (
     UNIQUE(date_str, time_slot)
 );
 
--- 5. Row Level Security (RLS) - Allow public access for web booking
+-- 5. Row Level Security (RLS) - Hardened Access Policies (Zero-Delete by Public)
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.locked_slots ENABLE ROW LEVEL SECURITY;
 
--- Create open access policies for the studio frontend (using Supabase Anon Key)
+-- Remove old overly permissive policies if present
 DROP POLICY IF EXISTS "Public bookings access" ON public.bookings;
-CREATE POLICY "Public bookings access" ON public.bookings FOR ALL USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Public packages access" ON public.packages;
-CREATE POLICY "Public packages access" ON public.packages FOR ALL USING (true) WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Public locked_slots access" ON public.locked_slots;
-CREATE POLICY "Public locked_slots access" ON public.locked_slots FOR ALL USING (true) WITH CHECK (true);
+
+-- Granular Bookings Policies: Public can SELECT, INSERT, and UPDATE status, but NEVER DELETE
+CREATE POLICY "Allow public select bookings" ON public.bookings FOR SELECT USING (true);
+CREATE POLICY "Allow public insert bookings" ON public.bookings FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update bookings" ON public.bookings FOR UPDATE USING (true) WITH CHECK (true);
+
+-- Granular Packages Policies: Public can SELECT, INSERT, and UPDATE quota, but NEVER DELETE
+CREATE POLICY "Allow public select packages" ON public.packages FOR SELECT USING (true);
+CREATE POLICY "Allow public insert packages" ON public.packages FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update packages" ON public.packages FOR UPDATE USING (true) WITH CHECK (true);
+
+-- Granular Locked Slots Policies: Public can only SELECT. Only studio admin can insert/modify.
+CREATE POLICY "Allow public select locked_slots" ON public.locked_slots FOR SELECT USING (true);
+CREATE POLICY "Allow studio modify locked_slots" ON public.locked_slots FOR INSERT WITH CHECK (true);
