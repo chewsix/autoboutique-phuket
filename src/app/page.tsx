@@ -199,6 +199,7 @@ export default function AutoboutiqueApp() {
   const [view, setView] = useState<'booking' | 'packages' | 'tracker' | 'admin'>('booking');
   const [lang, setLang] = useState<Language>('th');
   const isTh = lang === 'th';
+  const isRu = lang === 'ru';
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   // Booking Flow State
@@ -1231,17 +1232,17 @@ export default function AutoboutiqueApp() {
                     ? 'bg-amber-100/90 text-amber-900 border-amber-300/80 hover:bg-amber-200 shadow-sm'
                     : 'bg-slate-900/80 text-blue-300 border-slate-800 hover:text-white hover:border-blue-500/50'
                 }`}
-                title={theme === 'dark' ? (isTh ? 'สลับเป็นโหมดสว่าง' : 'Switch to Light Mode') : (isTh ? 'สลับเป็นโหมดมืด' : 'Switch to Dark Mode')}
+                title={theme === 'dark' ? (isTh ? 'สลับเป็นโหมดสว่าง' : isRu ? 'Переключить на светлую' : 'Switch to Light Mode') : (isTh ? 'สลับเป็นโหมดมืด' : isRu ? 'Переключить на темную' : 'Switch to Dark Mode')}
               >
                 {theme === 'dark' ? (
                   <>
                     <Sun className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="hidden sm:inline text-[11px] font-medium">{isTh ? 'สว่าง' : 'Light'}</span>
+                    <span className="hidden sm:inline text-[11px] font-medium">{isTh ? 'สว่าง' : isRu ? 'Свет' : 'Light'}</span>
                   </>
                 ) : (
                   <>
                     <Moon className="w-3.5 h-3.5 text-indigo-700" />
-                    <span className="hidden sm:inline text-[11px] font-medium">{isTh ? 'มืด' : 'Dark'}</span>
+                    <span className="hidden sm:inline text-[11px] font-medium">{isTh ? 'มืด' : isRu ? 'Тьма' : 'Dark'}</span>
                   </>
                 )}
               </button>
@@ -1253,11 +1254,11 @@ export default function AutoboutiqueApp() {
             <div className="flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-slate-300 font-medium">
-                {isTh ? 'สตูดิโอเปิดบริการ: จันทร์ - เสาร์ (08:30 - 17:30 น.)' : 'Studio Hours: Mon - Sat (08:30 - 17:30)'}
+                {isTh ? 'สตูดิโอเปิดบริการ: จันทร์ - เสาร์ (08:30 - 17:30 น.)' : isRu ? 'Режим работы: Пн - Сб (08:30 - 17:30)' : 'Studio Hours: Mon - Sat (08:30 - 17:30)'}
               </span>
             </div>
             <span className="hidden sm:inline text-slate-500">
-              {isTh ? '📍 ถนนเฉลิมพระเกียรติ ร.9 (บายพาส) ภูเก็ต' : 'Phuket Bypass Road'}
+              {isTh ? '📍 ถนนเฉลิมพระเกียรติ ร.9 (บายพาส) ภูเก็ต' : isRu ? '📍 Пхукет, Байпас роуд' : 'Phuket Bypass Road'}
             </span>
           </div>
 
@@ -1274,7 +1275,7 @@ export default function AutoboutiqueApp() {
               }`}
             >
               <CalendarIcon className="w-3.5 h-3.5" />
-              <span className="truncate">{isTh ? 'นัดหมายบริการ' : 'Appointment'}</span>
+              <span className="truncate">{isTh ? 'นัดหมายบริการ' : isRu ? 'Запись' : 'Appointment'}</span>
             </button>
 
             <button
@@ -1286,7 +1287,7 @@ export default function AutoboutiqueApp() {
               }`}
             >
               <Ticket className="w-3.5 h-3.5" />
-              <span className="truncate">{isTh ? 'แพ็คเกจเหมาจ่าย' : 'Passes'}</span>
+              <span className="truncate">{isTh ? 'แพ็คเกจเหมาจ่าย' : isRu ? 'Абонементы' : 'Passes'}</span>
             </button>
 
             <button
@@ -1298,7 +1299,7 @@ export default function AutoboutiqueApp() {
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span className="truncate">{isTh ? 'ติดตามสถานะ' : 'Live Tracker'}</span>
+              <span className="truncate">{isTh ? 'ติดตามสถานะ' : isRu ? 'Статус авто' : 'Live Tracker'}</span>
             </button>
 
             <button
@@ -1316,7 +1317,7 @@ export default function AutoboutiqueApp() {
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span className="truncate">{isTh ? 'ผู้ดูแลระบบ' : 'Admin'}</span>
+              <span className="truncate">{isTh ? 'ผู้ดูแลระบบ' : isRu ? 'Панель' : 'Admin'}</span>
             </button>
           </nav>
         </header>
@@ -1333,7 +1334,7 @@ export default function AutoboutiqueApp() {
                   CONCIERGE BOOKING
                 </span>
                 <h2 className="text-lg md:text-xl font-bold text-white tracking-tight">
-                  {isTh ? 'นัดหมายเข้ารับบริการล้างสี & ดีเทลลิ่ง' : 'Reserve Studio Detailing Appointment'}
+                  {isTh ? 'นัดหมายเข้ารับบริการล้างสี & ดีเทลลิ่ง' : isRu ? 'Запись на детейлинг и премиум мойку' : 'Reserve Studio Detailing Appointment'}
                 </h2>
               </div>
               <div className="flex items-center gap-1 text-xs text-slate-400 font-medium">
@@ -1797,11 +1798,11 @@ export default function AutoboutiqueApp() {
                   STUDIO PRIVILEGE PASSES
                 </span>
                 <h2 className="text-lg md:text-xl font-bold text-white tracking-tight">
-                  {isTh ? 'เอกสิทธิ์แพ็คเกจล้างรถเหมาจ่ายสุดคุ้ม' : 'Official Studio Prepaid Wash Passes'}
+                  {isTh ? 'เอกสิทธิ์แพ็คเกจล้างรถเหมาจ่ายสุดคุ้ม' : isRu ? 'Эксклюзивные абонементы на автомойку' : 'Official Studio Prepaid Wash Passes'}
                 </h2>
               </div>
               <span className="text-xs px-2.5 py-1 rounded-full bg-blue-950/80 border border-blue-500/40 text-blue-300 font-semibold">
-                {isTh ? 'ประหยัดสูงสุด ฿1,300' : 'Save up to ฿1,300'}
+                {isTh ? 'ประหยัดสูงสุด ฿1,300' : isRu ? 'Экономия до ฿1,300' : 'Save up to ฿1,300'}
               </span>
             </div>
 
@@ -1966,7 +1967,7 @@ export default function AutoboutiqueApp() {
                   LIVE DETAILING MONITOR
                 </span>
                 <h2 className="text-lg md:text-xl font-bold text-white tracking-tight">
-                  {isTh ? 'ระบบตรวจสอบสถานะการล้างรถสด' : 'Live Detailing Tracking System'}
+                  {isTh ? 'ระบบตรวจสอบสถานะการล้างรถสด' : isRu ? 'Система отслеживания статуса авто' : 'Live Detailing Tracking System'}
                 </h2>
               </div>
 
@@ -1975,7 +1976,7 @@ export default function AutoboutiqueApp() {
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
                 <input
                   type="text"
-                  placeholder={isTh ? 'ค้นหาทะเบียนรถ / รหัสจอง' : 'Search plate or ID...'}
+                  placeholder={isTh ? 'ค้นหาทะเบียนรถ / รหัสจอง' : isRu ? 'Поиск по номеру / ID...' : 'Search plate or ID...'}
                   value={trackerSearchTerm}
                   onChange={(e) => setTrackerSearchTerm(e.target.value)}
                   className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500"
@@ -2107,7 +2108,7 @@ export default function AutoboutiqueApp() {
                   EXECUTIVE PORTAL
                 </span>
                 <h2 className="text-lg md:text-xl font-bold text-white tracking-tight">
-                  {isTh ? 'ระบบบริหารจัดการสตูดิโอและคิวงาน' : 'Studio Management Portal'}
+                  {isTh ? 'ระบบบริหารจัดการสตูดิโอและคิวงาน' : isRu ? 'Панель управления студией и очередью' : 'Studio Management Portal'}
                 </h2>
               </div>
 
@@ -2118,7 +2119,7 @@ export default function AutoboutiqueApp() {
                   className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{isTh ? '+ ลูกค้า Walk-in (฿500)' : '+ Walk-in'}</span>
+                  <span>{isTh ? '+ ลูกค้า Walk-in (฿1 - ทดสอบ)' : isRu ? '+ Вход без записи (฿1)' : '+ Walk-in (฿1 Test)'}</span>
                 </button>
 
                 <button
