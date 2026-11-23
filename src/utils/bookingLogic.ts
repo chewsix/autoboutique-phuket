@@ -886,6 +886,23 @@ export function getEstimatedCompletion(timeSlot: string): string {
   return `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+// Official Autoboutique Phuket PromptPay Configuration
+export const PROMPTPAY_ID = '1800500068403';
+export const PROMPTPAY_NAME = 'Autoboutique Phuket (C-Cube Automotive)';
+export const PROMPTPAY_TYPE = 'national_id' as const;
+
+export function formatPromptPayId(id: string = PROMPTPAY_ID): string {
+  const digits = id.replace(/\D/g, '');
+  if (digits.length === 13) {
+    // Standard Thai National ID format: X-XXXX-XXXXX-XX-X
+    return `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}`;
+  }
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return id;
+}
+
 // EMVCo CRC-16 (CCITT-FALSE: poly 0x1021, init 0xFFFF)
 export function crc16(data: string): string {
   let crc = 0xffff;

@@ -24,6 +24,8 @@ import {
   getEstimatedCompletion,
   generatePromptPayPayload,
   crc16,
+  PROMPTPAY_ID,
+  formatPromptPayId,
   BookingRecord,
   CustomerPackage,
   ServiceType,
@@ -780,6 +782,32 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
       // Thai Tax/National ID (13 digits)
       const taxIdPayload = generatePromptPayPayload('0123456789012', 1000);
       assert.strictEqual(taxIdPayload.includes('02130123456789012'), true, 'Tag 29 subtag 02 for 13-digit ID');
+    });
+
+    it('TC-46: Official studio National ID 1800500068403 PromptPay payload generation', () => {
+      assert.strictEqual(PROMPTPAY_ID, '1800500068403');
+      const payload500 = generatePromptPayPayload(PROMPTPAY_ID, 500);
+
+      // Verify Tag 29 subtag 02 with 13-digit National ID
+      assert.strictEqual(payload500.includes('02131800500068403'), true, 'Must encode 13-digit National ID under subtag 02');
+      assert.strictEqual(payload500.includes('5406500.00'), true, 'Must format ฿500.00');
+      assert.strictEqual(payload500.slice(-4), crc16(payload500.slice(0, -4)), 'Checksum must match CRC-16');
+
+      const payload5000 = generatePromptPayPayload(PROMPTPAY_ID, 5000);
+      assert.strictEqual(payload5000.includes('02131800500068403'), true);
+      assert.strictEqual(payload5000.includes('54075000.00'), true);
+      assert.strictEqual(payload5000.slice(-4), crc16(payload5000.slice(0, -4)));
+    });
+
+    it('TC-47: formatPromptPayId formats 13-digit National ID cleanly for mobile display', () => {
+      const formatted = formatPromptPayId('1800500068403');
+      assert.strictEqual(formatted, '1-8005-00068-40-3');
+
+      // Test with clean default
+      assert.strictEqual(formatPromptPayId(), '1-8005-00068-40-3');
+
+      // 10-digit mobile fallback test
+      assert.strictEqual(formatPromptPayId('0966369933'), '096-636-9933');
     });
   });
 });

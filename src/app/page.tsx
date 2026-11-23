@@ -47,6 +47,7 @@ import {
   Users,
   Search,
   Filter,
+  Smartphone,
 } from 'lucide-react';
 
 import {
@@ -74,6 +75,9 @@ import {
   isValidThaiPhone,
   getEstimatedCompletion,
   generatePromptPayPayload,
+  PROMPTPAY_ID,
+  PROMPTPAY_NAME,
+  formatPromptPayId,
   BookingRecord,
   PackageDeal,
   CustomerPackage,
@@ -228,6 +232,8 @@ export default function AutoboutiqueApp() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [lineNotificationSuccess, setLineNotificationSuccess] = useState<string | null>(null);
   const [trackerSearchTerm, setTrackerSearchTerm] = useState<string>('');
+  const [copiedPromptPay, setCopiedPromptPay] = useState(false);
+  const [copiedAmount, setCopiedAmount] = useState(false);
 
   const slipFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -492,6 +498,52 @@ export default function AutoboutiqueApp() {
       img.src = e.target?.result as string;
     };
     reader.readAsDataURL(file);
+  };
+
+  // Copy PromptPay Number (for Mobile & Desktop)
+  const handleCopyPromptPay = () => {
+    try {
+      navigator.clipboard.writeText(PROMPTPAY_ID);
+      setCopiedPromptPay(true);
+      setToastMessage(isTh ? `คัดลอกเลขพร้อมเพย์ ${formatPromptPayId(PROMPTPAY_ID)} แล้ว` : `Copied PromptPay ID: ${PROMPTPAY_ID}`);
+      setTimeout(() => setCopiedPromptPay(false), 2500);
+    } catch {
+      // Fallback prompt
+      window.prompt(isTh ? 'คัดลอกเลขพร้อมเพย์:' : 'Copy PromptPay ID:', PROMPTPAY_ID);
+    }
+  };
+
+  // Copy Exact Amount
+  const handleCopyAmount = (amount: number) => {
+    try {
+      navigator.clipboard.writeText(amount.toFixed(2));
+      setCopiedAmount(true);
+      setToastMessage(isTh ? `คัดลอกยอดเงิน ฿${amount.toLocaleString()}.00 แล้ว` : `Copied Amount: ฿${amount.toLocaleString()}.00`);
+      setTimeout(() => setCopiedAmount(false), 2500);
+    } catch {
+      window.prompt(isTh ? 'คัดลอกยอดเงิน:' : 'Copy amount:', amount.toFixed(2));
+    }
+  };
+
+  // Download QR Code Image to Device (Crucial for Mobile Banking app scan from gallery)
+  const handleDownloadQr = async (amount: number) => {
+    const payload = generatePromptPayPayload(PROMPTPAY_ID, amount);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(payload)}`;
+    try {
+      const res = await fetch(qrUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `autoboutique-promptpay-${amount}thb.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+      setToastMessage(isTh ? 'บันทึกภาพ QR Code ลงเครื่องเรียบร้อยแล้ว' : 'QR Code image saved to device');
+    } catch {
+      window.open(qrUrl, '_blank');
+    }
   };
 
   // Open Payment Modal
@@ -2062,52 +2114,140 @@ export default function AutoboutiqueApp() {
         )}
 
         {/* =========================================================================
-            PROMPTPAY & SLIP VERIFICATION MODAL
+            PROMPTPAY & SLIP VERIFICATION MODAL (Optimized for Mobile & Desktop)
             ========================================================================= */}
         {promptPayModal.open && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[92vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fade-in">
+            <div className="luxe-panel rounded-2xl w-full max-w-md p-4 sm:p-5 space-y-4 max-h-[94vh] overflow-y-auto">
+              {/* Header */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div>
-                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">
-                    EXECUTIVE SETTLEMENT
-                  </span>
-                  <h3 className="text-base font-bold text-white">{promptPayModal.title}</h3>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-900/60 border border-blue-500/40 flex items-center justify-center text-blue-300">
+                    <QrCode className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">
+                      PROMPTPAY OFFICIAL SETTLEMENT
+                    </span>
+                    <h3 className="text-sm sm:text-base font-bold text-white">{promptPayModal.title}</h3>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 })}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Amount & PromptPay Display */}
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
+              {/* Amount & PromptPay Display Card */}
+              <div className="p-3.5 sm:p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
+                {/* Timer Bar */}
                 <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-900">
-                  <span>{isTh ? 'เวลาสแกนชำระเงิน' : 'Time Remaining'}:</span>
-                  <span className="font-mono font-bold text-amber-400">{formatTimer(paymentCountdown)}</span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{isTh ? 'เวลานับถอยหลังการชำระเงิน' : 'Time Remaining'}:</span>
+                  </span>
+                  <span className="font-mono font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">
+                    {formatTimer(paymentCountdown)}
+                  </span>
                 </div>
 
                 {/* QR Code Container */}
-                <div className="w-44 h-44 mx-auto bg-white p-2.5 rounded-2xl shadow-lg flex items-center justify-center">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                      generatePromptPayPayload('0966369933', promptPayModal.amount)
-                    )}`}
-                    alt="Official PromptPay EMVCo QR Code"
-                    className="w-full h-full object-contain"
-                  />
+                <div className="space-y-2">
+                  <div className="w-44 h-44 sm:w-48 sm:h-48 mx-auto bg-white p-2.5 rounded-2xl shadow-xl flex items-center justify-center border-2 border-blue-500/20">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+                        generatePromptPayPayload(PROMPTPAY_ID, promptPayModal.amount)
+                      )}`}
+                      alt="PromptPay EMVCo QR Code 1800500068403"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+
+                  {/* Save QR Image Button for Mobile */}
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadQr(promptPayModal.amount)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[11px] font-medium transition hover:border-blue-500 active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{isTh ? 'บันทึกรูป QR ลงเครื่อง (เพื่อสแกนในแอปธนาคาร)' : 'Save QR Image (For Bank App)'}</span>
+                  </button>
                 </div>
 
-                <div>
-                  <span className="text-2xl font-extrabold text-blue-400 font-sans">
-                    ฿{promptPayModal.amount.toLocaleString()}.00
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    {isTh ? 'พร้อมเพย์สตูดิโอ: 096 636 9933 (C-Cube Automotive)' : 'PromptPay: 096 636 9933'}
-                  </p>
+                {/* PromptPay National ID Info with 1-Click Copy */}
+                <div className="pt-2 border-t border-slate-900 space-y-2 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      {isTh ? 'เลขประจำตัวประชาชน (พร้อมเพย์)' : 'PromptPay (National ID)'}
+                    </span>
+                    <span className="text-[10px] text-blue-400 font-medium">Auto-Fill Amount</span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
+                    <div>
+                      <div className="font-mono font-bold text-white text-sm sm:text-base tracking-wider">
+                        {formatPromptPayId(PROMPTPAY_ID)}
+                      </div>
+                      <div className="text-[10px] text-slate-400">{PROMPTPAY_NAME}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyPromptPay}
+                      className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-[11px] font-semibold transition flex items-center gap-1 shrink-0"
+                    >
+                      {copiedPromptPay ? (
+                        <>
+                          <CheckCheck className="w-3.5 h-3.5 text-emerald-200" />
+                          <span>{isTh ? 'คัดลอกแล้ว' : 'Copied'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>{isTh ? 'คัดลอกเลข' : 'Copy ID'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs text-slate-400">{isTh ? 'ยอดชำระสุทธิ:' : 'Amount:'}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-extrabold text-blue-400 font-sans">
+                        ฿{promptPayModal.amount.toLocaleString()}.00
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyAmount(promptPayModal.amount)}
+                        className="p-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 text-[10px] transition"
+                        title={isTh ? 'คัดลอกยอดเงิน' : 'Copy amount'}
+                      >
+                        {copiedAmount ? <CheckCheck className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Guide Pill */}
+                <div className="p-2.5 rounded-xl bg-blue-950/30 border border-blue-900/40 text-left space-y-1">
+                  <div className="text-[11px] font-semibold text-blue-300 flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>{isTh ? 'คำแนะนำสำหรับผู้ใช้งานบนโทรศัพท์มือถือ:' : 'Mobile Phone Instructions:'}</span>
+                  </div>
+                  <ul className="text-[10px] text-slate-300 space-y-0.5 pl-5 list-disc">
+                    <li>
+                      {isTh
+                        ? 'กดปุ่ม "บันทึกรูป QR" ➔ เปิดแอปธนาคาร ➔ เลือกเมนูสแกนจากอัลบั้มรูปภาพ'
+                        : 'Tap "Save QR" ➔ Open bank app ➔ Select scan from photo album'}
+                    </li>
+                    <li>
+                      {isTh
+                        ? 'หรือกดปุ่ม "คัดลอกเลข" ➔ เปิดแอปธนาคาร ➔ โอนเงินพร้อมเพย์ด้วยเลขบัตรประชาชน'
+                        : 'Or tap "Copy ID" ➔ Transfer via National ID in your bank app'}
+                    </li>
+                  </ul>
                 </div>
               </div>
 
@@ -2115,7 +2255,7 @@ export default function AutoboutiqueApp() {
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
                   <span>{isTh ? 'แนบสลิปหลักฐานการโอนเงิน (บังคับ):' : 'Upload Payment Slip (Required):'}</span>
-                  {slipVerified && <span className="text-[10px] text-emerald-400 font-bold">✓ แนบสลิปแล้ว</span>}
+                  {slipVerified && <span className="text-[10px] text-emerald-400 font-bold">✓ ตรวจสอบสลิปแล้ว</span>}
                 </label>
 
                 <input
@@ -2130,16 +2270,25 @@ export default function AutoboutiqueApp() {
 
                 {uploadedSlipPreview ? (
                   <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <img
                         src={uploadedSlipPreview}
                         alt="Slip Preview"
-                        className="w-12 h-14 rounded-lg object-cover border border-slate-700"
+                        className="w-12 h-14 rounded-lg object-cover border border-slate-700 shrink-0"
                       />
-                      <div>
-                        <p className="text-xs font-semibold text-white">{isTh ? 'หลักฐานการชำระเงิน' : 'Payment Slip'}</p>
-                        <p className="text-[10px] text-emerald-400 font-medium">
-                          {slipChecking ? (isTh ? 'กำลังตรวจสอบ...' : 'Verifying...') : isTh ? '✓ พร้อมยืนยัน' : '✓ Verified'}
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">
+                          {isTh ? 'สลิปโอนเงินพร้อมเพย์' : 'Payment Slip'}
+                        </p>
+                        <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+                          {slipChecking ? (
+                            isTh ? 'กำลังปรับขนาดและตรวจสอบ...' : 'Optimizing...'
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>{isTh ? 'พร้อมยืนยันการจอง' : 'Ready to Submit'}</span>
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -2149,7 +2298,7 @@ export default function AutoboutiqueApp() {
                         setUploadedSlipPreview(null);
                         setSlipVerified(false);
                       }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-900"
+                      className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-900 transition shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -2157,18 +2306,20 @@ export default function AutoboutiqueApp() {
                 ) : (
                   <div
                     onClick={() => slipFileInputRef.current?.click()}
-                    className="p-4 rounded-xl border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-950/60 cursor-pointer text-center space-y-1 transition"
+                    className="p-4 rounded-xl border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-950/60 cursor-pointer text-center space-y-1.5 transition active:scale-[0.99]"
                   >
-                    <Upload className="w-5 h-5 text-blue-400 mx-auto" />
+                    <Upload className="w-6 h-6 text-blue-400 mx-auto" />
                     <p className="text-xs font-semibold text-slate-200">
-                      {isTh ? 'คลิกหรือลากไฟล์สลิปมาวางที่นี่' : 'Click or Drag Slip Here'}
+                      {isTh ? 'แตะที่นี่เพื่อถ่ายรูปสลิป หรือเลือกจากอัลบั้ม' : 'Tap to take photo or choose from album'}
                     </p>
-                    <p className="text-[10px] text-slate-500">รองรับไฟล์รูปภาพ PNG, JPG ไม่เกิน 8MB</p>
+                    <p className="text-[10px] text-slate-500">
+                      {isTh ? 'รองรับ JPEG, PNG (ระบบบีบอัดภาพอัตโนมัติ ไม่เปลืองเน็ต)' : 'Supports JPEG, PNG (Auto-compressed)'}
+                    </p>
                   </div>
                 )}
               </div>
 
-              {/* Confirm Button (Unlocks ONLY when slip is attached) */}
+              {/* Confirm Button */}
               <div className="pt-2">
                 <button
                   type="button"
@@ -2180,9 +2331,9 @@ export default function AutoboutiqueApp() {
                       handleCompletePackagePurchase(promptPayModal.pkgId);
                     }
                   }}
-                  className={`w-full py-3 rounded-xl font-bold text-xs md:text-sm transition flex items-center justify-center gap-2 ${
+                  className={`w-full py-3 sm:py-3.5 rounded-xl font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 ${
                     slipVerified
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg shadow-blue-900/40 cursor-pointer'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg shadow-blue-900/40 cursor-pointer active:scale-[0.99]'
                       : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                   }`}
                 >
@@ -2190,7 +2341,7 @@ export default function AutoboutiqueApp() {
                   <span>
                     {!slipVerified
                       ? isTh ? 'กรุณาแนบสลิปก่อนยืนยัน' : 'Attach Slip to Unlock'
-                      : isTh ? 'ยืนยันการจองคิวและส่งข้อมูล' : 'Confirm & Submit'}
+                      : isTh ? 'ยืนยันการจองคิว VIP และแจ้งเตือนสตูดิโอ' : 'Confirm & Notify Studio'}
                   </span>
                 </button>
               </div>
