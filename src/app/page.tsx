@@ -1124,7 +1124,7 @@ export default function AutoboutiqueApp() {
 
   return (
     <div
-      className={`min-h-screen ${
+      className={`min-h-screen w-full max-w-full overflow-x-hidden ${
         theme === 'light' ? 'theme-light bg-[#F8FAFC] text-slate-900' : 'theme-dark bg-[#080C14] text-slate-100'
       } flex flex-col items-center ambient-cobalt-glow selection:bg-blue-600 selection:text-white transition-colors duration-300`}
     >
@@ -1175,22 +1175,22 @@ export default function AutoboutiqueApp() {
             theme === 'light' ? 'border-slate-200 bg-white/90' : 'border-slate-800/80 bg-[#0B0F19]/90'
           } sticky top-0 z-40 backdrop-blur-md px-4 py-3.5 md:px-6 transition-colors duration-300`}
         >
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2.5 sm:gap-3">
             {/* Brand Logo & Heritage */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-900 flex items-center justify-center shadow-lg shadow-blue-900/40 border border-blue-400/30">
-                <ShieldCheck className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-900 flex items-center justify-center shadow-lg shadow-blue-900/40 border border-blue-400/30 shrink-0">
+                <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base md:text-lg font-bold tracking-tight text-white uppercase font-sans">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h1 className="text-sm sm:text-base md:text-lg font-bold tracking-tight text-white uppercase font-sans truncate">
                     Autoboutique <span className="text-blue-500 font-light">Phuket</span>
                   </h1>
-                  <span className="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-950/80 border border-blue-500/30 text-blue-300 uppercase tracking-wider">
+                  <span className="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-950/80 border border-blue-500/30 text-blue-300 uppercase tracking-wider shrink-0">
                     C-Cube Automotive
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 font-normal">
+                <p className="text-[10px] sm:text-[11px] text-slate-400 font-normal truncate">
                   {isTh ? 'สตูดิโอดักฝุ่น & ล้างรถระดับพรีเมียม (Est. 2008)' : 'Luxury Automotive Detailing Studio (Est. 2008)'}
                 </p>
               </div>
@@ -1265,41 +1265,44 @@ export default function AutoboutiqueApp() {
           {/* =========================================================================
               EXECUTIVE SEGMENTED NAVIGATION BAR
               ========================================================================= */}
-          <nav className="mt-3 grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800/80">
+          <nav className="mt-3 grid grid-cols-4 gap-1 sm:gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800/80">
             <button
               onClick={() => setView('booking')}
-              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2.5 px-1 sm:px-2 rounded-lg text-xs font-medium transition ${
                 view === 'booking'
                   ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-900/30 font-semibold'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
               }`}
             >
-              <CalendarIcon className="w-3.5 h-3.5" />
-              <span className="truncate">{isTh ? 'นัดหมายบริการ' : isRu ? 'Запись' : 'Appointment'}</span>
+              <CalendarIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate sm:hidden">{isTh ? 'นัดหมาย' : isRu ? 'Запись' : 'Book'}</span>
+              <span className="truncate hidden sm:inline">{isTh ? 'นัดหมายบริการ' : isRu ? 'Запись' : 'Appointment'}</span>
             </button>
 
             <button
               onClick={() => setView('packages')}
-              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2.5 px-1 sm:px-2 rounded-lg text-xs font-medium transition ${
                 view === 'packages'
                   ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-900/30 font-semibold'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
               }`}
             >
-              <Ticket className="w-3.5 h-3.5" />
-              <span className="truncate">{isTh ? 'แพ็คเกจเหมาจ่าย' : isRu ? 'Абонементы' : 'Passes'}</span>
+              <Ticket className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate sm:hidden">{isTh ? 'แพ็คเกจ' : isRu ? 'Пакеты' : 'Passes'}</span>
+              <span className="truncate hidden sm:inline">{isTh ? 'แพ็คเกจเหมาจ่าย' : isRu ? 'Абонементы' : 'Passes'}</span>
             </button>
 
             <button
               onClick={() => setView('tracker')}
-              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2.5 px-1 sm:px-2 rounded-lg text-xs font-medium transition ${
                 view === 'tracker'
                   ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-900/30 font-semibold'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
               }`}
             >
-              <Clock className="w-3.5 h-3.5" />
-              <span className="truncate">{isTh ? 'ติดตามสถานะ' : isRu ? 'Статус авто' : 'Live Tracker'}</span>
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate sm:hidden">{isTh ? 'ติดตามสด' : isRu ? 'Статус' : 'Track'}</span>
+              <span className="truncate hidden sm:inline">{isTh ? 'ติดตามสถานะ' : isRu ? 'Статус авто' : 'Live Tracker'}</span>
             </button>
 
             <button
@@ -1310,14 +1313,15 @@ export default function AutoboutiqueApp() {
                   setAdminPinModalOpen(true);
                 }
               }}
-              className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2.5 px-1 sm:px-2 rounded-lg text-xs font-medium transition ${
                 view === 'admin'
                   ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white shadow-lg shadow-blue-900/30 font-semibold'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900/50'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span className="truncate">{isTh ? 'ผู้ดูแลระบบ' : isRu ? 'Панель' : 'Admin'}</span>
+              <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate sm:hidden">{isTh ? 'แอดมิน' : isRu ? 'Админ' : 'Admin'}</span>
+              <span className="truncate hidden sm:inline">{isTh ? 'ผู้ดูแลระบบ' : isRu ? 'Панель' : 'Admin'}</span>
             </button>
           </nav>
         </header>
@@ -1545,7 +1549,7 @@ export default function AutoboutiqueApp() {
                     <span className="text-xs font-semibold text-slate-300">
                       {isTh ? currentMonthData.labelTh : currentMonthData.labelEn}
                     </span>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 overflow-x-auto max-w-[210px] sm:max-w-none pb-0.5">
                       {ADVANCE_MONTHS.map((m, idx) => (
                         <button
                           key={m.key}
@@ -1753,7 +1757,7 @@ export default function AutoboutiqueApp() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
                 {/* If Client has Package Pass, Show Redeem Option */}
                 {customerPackages.some((p) => p.status === 'active' && p.remainingQuota > 0) && (
                   <button
@@ -2322,7 +2326,7 @@ export default function AutoboutiqueApp() {
           <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in ${
             theme === 'light' ? 'bg-slate-900/40 backdrop-blur-md' : 'bg-black/80 backdrop-blur-md'
           }`}>
-            <div className={`rounded-2xl w-full max-w-lg p-4 sm:p-5 space-y-4 max-h-[92vh] overflow-y-auto shadow-2xl transition-all ${
+            <div className={`rounded-2xl w-full max-w-lg p-4 sm:p-5 space-y-4 max-h-[90vh] max-h-[90dvh] overflow-y-auto overscroll-contain shadow-2xl transition-all ${
               theme === 'light' ? 'bg-white border border-slate-200 text-slate-900' : 'luxe-panel text-white'
             }`}>
               {/* Header */}
@@ -2783,8 +2787,10 @@ export default function AutoboutiqueApp() {
             PRINTABLE VIP WORK ORDER & RECEIPT MODAL
             ========================================================================= */}
         {lastConfirmedBooking && (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[92vh] overflow-y-auto">
+          <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in ${
+            theme === 'light' ? 'bg-slate-900/40 backdrop-blur-md' : 'bg-black/85 backdrop-blur-md'
+          }`}>
+            <div className="luxe-panel rounded-2xl w-full max-w-md p-4 sm:p-5 space-y-4 max-h-[90vh] max-h-[90dvh] overflow-y-auto overscroll-contain shadow-2xl">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2">
                   <CheckCheck className="w-5 h-5 text-emerald-400" />
@@ -2793,7 +2799,8 @@ export default function AutoboutiqueApp() {
                 <button
                   type="button"
                   onClick={() => setLastConfirmedBooking(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white"
+                  className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition active:scale-95"
+                  aria-label="Close receipt"
                 >
                   <X className="w-4 h-4" />
                 </button>
