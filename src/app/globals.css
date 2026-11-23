@@ -15,12 +15,21 @@
   --autoboutique-heading: #1E3A8A;
 }
 
+/* =============================================================================
+   BASE BODY STYLES & DUAL-THEME TRANSITION
+   ============================================================================= */
 body {
   color: #F8FAFC;
   background-color: #080C14;
   font-family: 'Prompt', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body.theme-light {
+  color: #0F172A;
+  background-color: #F8FAFC;
 }
 
 /* Custom Luxury Blue Scrollbars */
@@ -31,20 +40,43 @@ body {
 ::-webkit-scrollbar-track {
   background: #080C14;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.3);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.65);
+body.theme-light ::-webkit-scrollbar-track {
+  background: #F1F5F9;
 }
 
-/* Executive Studio Card Styling */
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.35);
+  border-radius: 9999px;
+}
+body.theme-light ::-webkit-scrollbar-thumb {
+  background: rgba(37, 99, 235, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+body.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(37, 99, 235, 0.65);
+}
+
+/* =============================================================================
+   EXECUTIVE STUDIO CARD STYLING (DARK & LIGHT)
+   ============================================================================= */
 .luxe-panel {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(10, 15, 30, 0.94) 100%);
   border: 1px solid rgba(59, 130, 246, 0.18);
   backdrop-filter: blur(16px);
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Light Theme Executive Panel */
+body.theme-light .luxe-panel,
+.theme-light .luxe-panel {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 25px -8px rgba(15, 23, 42, 0.06), 0 0 1px 1px rgba(37, 99, 235, 0.06);
 }
 
 .luxe-panel-hover {
@@ -53,6 +85,13 @@ body {
 .luxe-panel-hover:hover {
   border-color: rgba(59, 130, 246, 0.45);
   box-shadow: 0 14px 40px -12px rgba(37, 99, 235, 0.22);
+  transform: translateY(-2px);
+}
+
+body.theme-light .luxe-panel-hover:hover,
+.theme-light .luxe-panel-hover:hover {
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: 0 14px 35px -10px rgba(37, 99, 235, 0.16);
   transform: translateY(-2px);
 }
 
@@ -73,10 +112,144 @@ body {
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
 }
 
-/* Subtle Ambient Gradient Background */
+/* Ambient Cobalt Glow (Theme-Aware) */
 .ambient-cobalt-glow {
   background-image: 
     radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.12) 0%, transparent 60%),
     radial-gradient(circle at 100% 30%, rgba(29, 78, 216, 0.08) 0%, transparent 50%),
     radial-gradient(circle at 0% 70%, rgba(30, 58, 138, 0.08) 0%, transparent 50%);
+}
+
+body.theme-light .ambient-cobalt-glow,
+.theme-light.ambient-cobalt-glow {
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.06) 0%, transparent 60%),
+    radial-gradient(circle at 100% 30%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 0% 70%, rgba(224, 242, 254, 0.5) 0%, transparent 50%);
+}
+
+/* =============================================================================
+   LIGHT MODE TARGETED COMPONENT ADAPTATIONS
+   ============================================================================= */
+
+/* Headings and primary labels in light mode */
+.theme-light h1.text-white,
+.theme-light h2.text-white,
+.theme-light h3.text-white,
+.theme-light h4.text-white {
+  color: #0F172A !important;
+}
+
+/* Background cards and containers in light mode */
+.theme-light .bg-slate-950 {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+
+.theme-light .bg-slate-900 {
+  background-color: #F1F5F9 !important;
+  border-color: #E2E8F0 !important;
+}
+
+.theme-light .bg-slate-900\/90,
+.theme-light .bg-slate-900\/80,
+.theme-light .bg-slate-900\/60,
+.theme-light .bg-slate-900\/40 {
+  background-color: rgba(241, 245, 249, 0.9) !important;
+  border-color: #E2E8F0 !important;
+}
+
+.theme-light .bg-slate-950\/90,
+.theme-light .bg-slate-950\/80,
+.theme-light .bg-slate-950\/60,
+.theme-light .bg-slate-950\/50,
+.theme-light .bg-slate-950\/40 {
+  background-color: rgba(248, 250, 252, 0.9) !important;
+  border-color: #E2E8F0 !important;
+}
+
+/* Selected add-on and calendar cards */
+.theme-light .bg-blue-950\/40,
+.theme-light .bg-blue-900\/40,
+.theme-light .bg-blue-900\/50 {
+  background-color: rgba(239, 246, 255, 0.95) !important;
+  border-color: #2563EB !important;
+}
+
+.theme-light .bg-blue-950\/40 .text-white,
+.theme-light .bg-blue-900\/40 .text-white,
+.theme-light .bg-blue-900\/50 .text-white {
+  color: #1E3A8A !important;
+}
+
+/* Borders in light mode */
+.theme-light .border-slate-800,
+.theme-light .border-slate-800\/80,
+.theme-light .border-slate-800\/60,
+.theme-light .border-slate-900,
+.theme-light .border-slate-900\/80,
+.theme-light .border-slate-700 {
+  border-color: #E2E8F0 !important;
+}
+
+/* Text adjustments for light mode */
+.theme-light .text-slate-100 {
+  color: #0F172A !important;
+}
+.theme-light .text-slate-200 {
+  color: #1E293B !important;
+}
+.theme-light .text-slate-300 {
+  color: #334155 !important;
+}
+.theme-light .text-slate-400 {
+  color: #64748B !important;
+}
+.theme-light .text-slate-500 {
+  color: #94A3B8 !important;
+}
+
+/* Preserve bright white text in primary action buttons and badges */
+.theme-light button.bg-blue-600,
+.theme-light button.bg-blue-600 *,
+.theme-light button.bg-gradient-to-r,
+.theme-light button.bg-gradient-to-r *,
+.theme-light a.bg-gradient-to-r,
+.theme-light a.bg-gradient-to-r *,
+.theme-light .bg-blue-600.text-white,
+.theme-light .bg-emerald-600,
+.theme-light .bg-emerald-600 * {
+  color: #FFFFFF !important;
+}
+
+/* Light Mode Form Inputs & Selects */
+.theme-light input[type="text"],
+.theme-light input[type="tel"],
+.theme-light select,
+.theme-light textarea {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: #CBD5E1 !important;
+}
+
+.theme-light input::placeholder {
+  color: #94A3B8 !important;
+}
+
+.theme-light input:focus,
+.theme-light select:focus {
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+}
+
+/* Light mode table striping */
+.theme-light tr:hover {
+  background-color: rgba(241, 245, 249, 0.7) !important;
+}
+
+/* Light mode modal backdrop */
+.theme-light .fixed.inset-0.bg-black\/85,
+.theme-light .fixed.inset-0.bg-black\/80 {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(8px) !important;
 }

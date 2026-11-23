@@ -50,6 +50,8 @@ import {
   Smartphone,
   Landmark,
   ArrowRight,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 import {
@@ -196,6 +198,7 @@ export default function AutoboutiqueApp() {
   const [view, setView] = useState<'booking' | 'packages' | 'tracker' | 'admin'>('booking');
   const [lang, setLang] = useState<Language>('th');
   const isTh = lang === 'th';
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   // Booking Flow State
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
@@ -336,6 +339,18 @@ export default function AutoboutiqueApp() {
         const savedLang = localStorage.getItem('autoboutique_luxe_lang') as Language;
         if (savedLang) setLang(savedLang);
 
+        const savedTheme = localStorage.getItem('autoboutique_luxe_theme') as 'dark' | 'light';
+        if (savedTheme) {
+          setTheme(savedTheme);
+          if (savedTheme === 'light') {
+            document.body.classList.add('theme-light');
+            document.body.classList.remove('theme-dark');
+          } else {
+            document.body.classList.add('theme-dark');
+            document.body.classList.remove('theme-light');
+          }
+        }
+
         const savedAuth = sessionStorage.getItem('autoboutique_luxe_admin_auth');
         if (savedAuth === 'true') setIsAdminAuthenticated(true);
 
@@ -439,6 +454,27 @@ export default function AutoboutiqueApp() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('autoboutique_luxe_lang', newLang);
     }
+  };
+
+  // Toggle Theme (Dark / Light Mode)
+  const handleToggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('autoboutique_luxe_theme', nextTheme);
+      if (nextTheme === 'light') {
+        document.body.classList.add('theme-light');
+        document.body.classList.remove('theme-dark');
+      } else {
+        document.body.classList.add('theme-dark');
+        document.body.classList.remove('theme-light');
+      }
+    }
+    setToastMessage(
+      isTh
+        ? (nextTheme === 'light' ? '☀️ สลับสู่โหมดสว่าง (Executive Alabaster)' : '🌙 สลับสู่โหมดมืด (Midnight Obsidian)')
+        : (nextTheme === 'light' ? '☀️ Switched to Light Mode' : '🌙 Switched to Dark Mode')
+    );
   };
 
   // Send LINE Flex Notification via API
@@ -1036,7 +1072,11 @@ export default function AutoboutiqueApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[#080C14] text-slate-100 flex flex-col items-center ambient-cobalt-glow selection:bg-blue-600 selection:text-white">
+    <div
+      className={`min-h-screen ${
+        theme === 'light' ? 'theme-light bg-[#F8FAFC] text-slate-900' : 'theme-dark bg-[#080C14] text-slate-100'
+      } flex flex-col items-center ambient-cobalt-glow selection:bg-blue-600 selection:text-white transition-colors duration-300`}
+    >
       {/* Toast Notification Banner */}
       {toastMessage && (
         <div className="fixed top-5 z-50 px-5 py-3 rounded-full bg-slate-900/95 border border-blue-500/40 text-blue-100 text-xs md:text-sm font-medium shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2.5">
@@ -1054,12 +1094,20 @@ export default function AutoboutiqueApp() {
       )}
 
       {/* Main Container - Dual Ergonomics for Mobile and Desktop Centered */}
-      <div className="w-full max-w-4xl mx-auto flex flex-col min-h-screen border-x border-slate-900/80 bg-[#080C14]/90 backdrop-blur-md">
+      <div
+        className={`w-full max-w-4xl mx-auto flex flex-col min-h-screen border-x ${
+          theme === 'light' ? 'border-slate-200 bg-white/95' : 'border-slate-900/80 bg-[#080C14]/90'
+        } backdrop-blur-md transition-colors duration-300`}
+      >
         
         {/* =========================================================================
             EXECUTIVE BRAND HEADER
             ========================================================================= */}
-        <header className="border-b border-slate-800/80 bg-[#0B0F19]/90 sticky top-0 z-40 backdrop-blur-md px-4 py-3.5 md:px-6">
+        <header
+          className={`border-b ${
+            theme === 'light' ? 'border-slate-200 bg-white/90' : 'border-slate-800/80 bg-[#0B0F19]/90'
+          } sticky top-0 z-40 backdrop-blur-md px-4 py-3.5 md:px-6 transition-colors duration-300`}
+        >
           <div className="flex items-center justify-between gap-3">
             {/* Brand Logo & Heritage */}
             <div className="flex items-center gap-3">
@@ -1081,7 +1129,7 @@ export default function AutoboutiqueApp() {
               </div>
             </div>
 
-            {/* Top Right: Hours, Hotline, Language */}
+            {/* Top Right: Hotline, Language & Theme Mode */}
             <div className="flex items-center gap-2 md:gap-3">
               <a
                 href="tel:0966369933"
@@ -1107,6 +1155,30 @@ export default function AutoboutiqueApp() {
                   </button>
                 ))}
               </div>
+
+              {/* Luxury Theme Switcher (Dark / Light) */}
+              <button
+                type="button"
+                onClick={handleToggleTheme}
+                className={`p-1.5 rounded-lg border text-xs font-semibold transition flex items-center gap-1.5 active:scale-95 ${
+                  theme === 'light'
+                    ? 'bg-amber-100/90 text-amber-900 border-amber-300/80 hover:bg-amber-200 shadow-sm'
+                    : 'bg-slate-900/80 text-blue-300 border-slate-800 hover:text-white hover:border-blue-500/50'
+                }`}
+                title={theme === 'dark' ? (isTh ? 'สลับเป็นโหมดสว่าง' : 'Switch to Light Mode') : (isTh ? 'สลับเป็นโหมดมืด' : 'Switch to Dark Mode')}
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="hidden sm:inline text-[11px] font-medium">{isTh ? 'สว่าง' : 'Light'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-3.5 h-3.5 text-indigo-700" />
+                    <span className="hidden sm:inline text-[11px] font-medium">{isTh ? 'มืด' : 'Dark'}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
