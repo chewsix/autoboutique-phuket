@@ -1602,7 +1602,23 @@ export default function AutoboutiqueApp() {
                             : 'bg-slate-900/90 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
                         }`}
                       >
-                        {isTh ? w.monthTh : w.monthEn} ({isTh ? `สัปดาห์ที่ ${w.weekIndex + 1}` : `Week ${w.weekIndex + 1}`})
+                        {(() => {
+                          const firstDay = w.dates[0]?.dateNum || '';
+                          const lastDay = w.dates[w.dates.length - 1]?.dateNum || '';
+                          if (isTh) {
+                            const label = idx === 0 ? 'สัปดาห์นี้' : idx === 1 ? 'สัปดาห์หน้า' : 'สัปดาห์ถัดไป';
+                            const mLabel = idx === 0 ? 'พ.ย.' : 'ธ.ค.';
+                            return `${label} (${firstDay}-${lastDay} ${mLabel})`;
+                          } else if (isRu) {
+                            const label = idx === 0 ? 'Эта неделя' : idx === 1 ? 'След. неделя' : 'Через 2 нед.';
+                            const mLabel = idx === 0 ? 'ноя' : 'дек';
+                            return `${label} (${firstDay}-${lastDay} ${mLabel})`;
+                          } else {
+                            const label = idx === 0 ? 'This Week' : idx === 1 ? 'Next Week' : 'Following';
+                            const mLabel = idx === 0 ? 'Nov' : 'Dec';
+                            return `${label} (${firstDay}-${lastDay} ${mLabel})`;
+                          }
+                        })()}
                       </button>
                     ))}
                   </div>
