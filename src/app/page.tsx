@@ -186,12 +186,12 @@ interface ThaiBankApp {
 }
 
 const THAI_BANK_APPS: ThaiBankApp[] = [
-  { id: 'kbank', name: 'K PLUS', bankNameTh: 'กสิกรไทย', bankNameEn: 'KBank', scheme: 'kplus://', bgClass: 'bg-emerald-950/80 hover:bg-emerald-900', textClass: 'text-emerald-300', borderClass: 'border-emerald-600/40' },
-  { id: 'scb', name: 'SCB EASY', bankNameTh: 'ไทยพาณิชย์', bankNameEn: 'SCB', scheme: 'scbeasy://', bgClass: 'bg-purple-950/80 hover:bg-purple-900', textClass: 'text-purple-300', borderClass: 'border-purple-600/40' },
-  { id: 'ktb', name: 'Krungthai NEXT', bankNameTh: 'กรุงไทย', bankNameEn: 'KTB', scheme: 'ktbnext://', bgClass: 'bg-sky-950/80 hover:bg-sky-900', textClass: 'text-sky-300', borderClass: 'border-sky-600/40' },
-  { id: 'bbl', name: 'Bualuang m', bankNameTh: 'กรุงเทพ', bankNameEn: 'BBL', scheme: 'bualuangmbanking://', bgClass: 'bg-blue-950/80 hover:bg-blue-900', textClass: 'text-blue-300', borderClass: 'border-blue-600/40' },
-  { id: 'ttb', name: 'ttb touch', bankNameTh: 'ทีทีบี', bankNameEn: 'TTB', scheme: 'ttbtouch://', bgClass: 'bg-indigo-950/80 hover:bg-indigo-900', textClass: 'text-indigo-300', borderClass: 'border-indigo-600/40' },
-  { id: 'bay', name: 'KMA กรุงศรี', bankNameTh: 'กรุงศรี', bankNameEn: 'Krungsri', scheme: 'kma://', bgClass: 'bg-amber-950/80 hover:bg-amber-900', textClass: 'text-amber-300', borderClass: 'border-amber-600/40' },
+  { id: 'kbank', name: 'K PLUS', bankNameTh: 'กสิกรไทย', bankNameEn: 'KBank', scheme: 'kplus://', bgClass: 'bg-[#137e43] hover:bg-[#0f6737]', textClass: 'text-white', borderClass: 'border-emerald-600/50' },
+  { id: 'scb', name: 'SCB EASY', bankNameTh: 'ไทยพาณิชย์', bankNameEn: 'SCB', scheme: 'scbeasy://', bgClass: 'bg-[#4e2a84] hover:bg-[#3d2167]', textClass: 'text-white', borderClass: 'border-purple-500/50' },
+  { id: 'ktb', name: 'Krungthai NEXT', bankNameTh: 'กรุงไทย', bankNameEn: 'KTB', scheme: 'ktbnext://', bgClass: 'bg-[#0082c8] hover:bg-[#006ca7]', textClass: 'text-white', borderClass: 'border-sky-400/50' },
+  { id: 'bbl', name: 'Bualuang m', bankNameTh: 'กรุงเทพ', bankNameEn: 'BBL', scheme: 'bualuangmbanking://', bgClass: 'bg-[#1e3a8a] hover:bg-[#172554]', textClass: 'text-white', borderClass: 'border-blue-500/50' },
+  { id: 'ttb', name: 'ttb touch', bankNameTh: 'ทีทีบี', bankNameEn: 'TTB', scheme: 'ttbtouch://', bgClass: 'bg-[#002d62] hover:bg-[#001e42]', textClass: 'text-white', borderClass: 'border-blue-400/50' },
+  { id: 'bay', name: 'KMA กรุงศรี', bankNameTh: 'กรุงศรี', bankNameEn: 'Krungsri', scheme: 'kma://', bgClass: 'bg-[#8a6d3b] hover:bg-[#71582e]', textClass: 'text-white', borderClass: 'border-amber-500/50' },
 ];
 
 export default function AutoboutiqueApp() {
@@ -1414,7 +1414,10 @@ export default function AutoboutiqueApp() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white uppercase tracking-wider">
+                    <span
+                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 !text-white active-white-text uppercase tracking-wider shadow-sm"
+                      style={{ color: '#FFFFFF' }}
+                    >
                       STUDIO BASE
                     </span>
                     <h3 className="text-base md:text-lg font-bold text-white">
@@ -2168,8 +2171,12 @@ export default function AutoboutiqueApp() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping" />
-                        <span className="text-xs font-bold text-blue-400 uppercase font-mono">{activeCarRecord.id}</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 font-semibold border border-blue-800/60">
+                        <span className="text-xs font-bold text-blue-500 uppercase font-mono">{activeCarRecord.id}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${
+                          theme === 'light'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-blue-950 text-blue-300 border-blue-800/60'
+                        }`}>
                           {isTh ? 'กำลังดำเนินการ' : 'In Progress'}
                         </span>
                       </div>
@@ -2181,9 +2188,13 @@ export default function AutoboutiqueApp() {
                       </p>
                     </div>
 
-                    <div className="text-left sm:text-right bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                    <div className={`text-left sm:text-right p-3 rounded-xl border ${
+                      theme === 'light'
+                        ? 'bg-slate-50 border-slate-200'
+                        : 'bg-slate-900/80 border-slate-800'
+                    }`}>
                       <p className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'เวลาส่งมอบโดยประมาณ' : 'Estimated Ready'}</p>
-                      <p className="text-lg font-bold text-emerald-400 font-sans">{estimatedCompletionTime} น.</p>
+                      <p className={`text-lg font-bold font-sans ${theme === 'light' ? 'text-emerald-600' : 'text-emerald-400'}`}>{estimatedCompletionTime} น.</p>
                       <p className="text-[10px] text-slate-500">{isTh ? 'รอบนัดหมาย' : 'Slot'}: {activeCarRecord.timeSlot} น.</p>
                     </div>
                   </div>
@@ -2192,9 +2203,9 @@ export default function AutoboutiqueApp() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400 font-medium">
-                        {isTh ? 'ขั้นตอนปัจจุบัน' : 'Current Stage'}: <strong className="text-white">{activeStageInfo.titleTh}</strong>
+                        {isTh ? 'ขั้นตอนปัจจุบัน' : 'Current Stage'}: <strong className={theme === 'light' ? 'text-slate-900 font-bold' : 'text-white font-bold'}>{activeStageInfo.titleTh}</strong>
                       </span>
-                      <span className="font-bold text-blue-400">{activeStageNumber} / 5</span>
+                      <span className="font-bold text-blue-500">{activeStageNumber} / 5</span>
                     </div>
 
                     <div className="grid grid-cols-5 gap-1.5">
@@ -2204,7 +2215,9 @@ export default function AutoboutiqueApp() {
                           className={`h-2 rounded-full transition-all duration-500 ${
                             st <= activeStageNumber
                               ? 'bg-gradient-to-r from-blue-600 to-blue-400 shadow-sm shadow-blue-500/50'
-                              : 'bg-slate-800'
+                              : theme === 'light'
+                                ? 'bg-slate-200'
+                                : 'bg-slate-800'
                           }`}
                         />
                       ))}
@@ -2226,7 +2239,7 @@ export default function AutoboutiqueApp() {
                     <div className="sm:col-span-2 flex flex-col justify-between space-y-2">
                       <div>
                         <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 text-blue-400" />
+                          <CheckCircle2 className="w-4 h-4 text-blue-500" />
                           <span>{isTh ? activeStageInfo.titleTh : activeStageInfo.titleEn}</span>
                         </h4>
                         <p className="text-xs text-slate-300 mt-1 leading-relaxed">
@@ -2238,10 +2251,15 @@ export default function AutoboutiqueApp() {
                         <button
                           type="button"
                           onClick={() => setLastConfirmedBooking(activeCarRecord)}
-                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5"
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                            theme === 'light'
+                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 shadow-sm'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                          }`}
+                          style={{ color: theme === 'light' ? '#1E293B' : '#E2E8F0' }}
                         >
-                          <Receipt className="w-3.5 h-3.5 text-blue-400" />
-                          <span>{isTh ? 'เปิดใบเสร็จ VIP' : 'View Work Order'}</span>
+                          <Receipt className="w-3.5 h-3.5 text-blue-500" />
+                          <span style={{ color: theme === 'light' ? '#1E293B' : '#E2E8F0' }}>{isTh ? 'เปิดใบเสร็จ VIP' : 'View Work Order'}</span>
                         </button>
 
                         <a
@@ -2253,10 +2271,15 @@ export default function AutoboutiqueApp() {
                           })}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5"
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                            theme === 'light'
+                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 shadow-sm'
+                              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                          }`}
+                          style={{ color: theme === 'light' ? '#1E293B' : '#E2E8F0' }}
                         >
-                          <CalendarIcon className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Google Cal</span>
+                          <CalendarIcon className="w-3.5 h-3.5 text-emerald-500" />
+                          <span style={{ color: theme === 'light' ? '#1E293B' : '#E2E8F0' }}>Google Cal</span>
                         </a>
                       </div>
                     </div>
@@ -2664,11 +2687,17 @@ export default function AutoboutiqueApp() {
                     <button
                       key={bank.id}
                       type="button"
+                      data-bank-app="true"
                       onClick={() => handleOpenBankApp(bank.scheme, bank.bankNameTh)}
-                      className={`p-2 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition active:scale-95 ${bank.bgClass} ${bank.borderClass}`}
+                      className={`p-2 rounded-lg border flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow-sm ${bank.bgClass} ${bank.borderClass}`}
                     >
-                      <Landmark className={`w-3.5 h-3.5 ${bank.textClass}`} />
-                      <span className="text-[10px] font-bold text-white leading-tight">{bank.name}</span>
+                      <Landmark className="w-3.5 h-3.5 text-white" style={{ color: '#FFFFFF' }} />
+                      <span
+                        className="text-[10px] font-bold !text-white active-white-text leading-tight text-center"
+                        style={{ color: '#FFFFFF' }}
+                      >
+                        {bank.name}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -2796,18 +2825,47 @@ export default function AutoboutiqueApp() {
             ========================================================================= */}
         {adminPinModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/85 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
-            <div className="luxe-panel rounded-2xl w-full max-w-sm p-5 space-y-4 text-center my-auto shadow-2xl">
-              <div className="w-12 h-12 rounded-full bg-blue-950 border border-blue-500/40 flex items-center justify-center mx-auto text-blue-400">
+            <div className={`rounded-2xl w-full max-w-sm p-6 text-center space-y-4 my-auto shadow-2xl transition-all ${
+              theme === 'light'
+                ? 'bg-white border-2 border-slate-200 text-slate-900 shadow-slate-300/60'
+                : 'luxe-panel border-slate-700 text-white'
+            }`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto transition ${
+                theme === 'light'
+                  ? 'bg-blue-50 border border-blue-200 text-blue-600'
+                  : 'bg-blue-950 border border-blue-500/40 text-blue-400'
+              }`}>
                 <Lock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">{isTh ? 'ระบบบริหารจัดการสตูดิโอ' : 'Executive Studio Auth'}</h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                  {isTh ? 'ระบบบริหารจัดการสตูดิโอ' : 'Executive Studio Auth'}
+                </h3>
+                <p className={`text-xs mt-1 ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
                   {isTh ? 'กรุณากรอกรหัส PIN ผู้ดูแลระบบ (1234 หรือ 8888)' : 'Enter 4-digit security PIN'}
                 </p>
               </div>
 
-              <form onSubmit={handlePinSubmit} className="space-y-3">
+              <form onSubmit={handlePinSubmit} className="space-y-4">
+                {/* Visual 4-Digit Passcode Indicator Dots */}
+                <div className="flex justify-center items-center gap-3 py-1">
+                  {[0, 1, 2, 3].map((index) => {
+                    const isFilled = pinInput.length > index;
+                    return (
+                      <div
+                        key={index}
+                        className={`w-4 h-4 rounded-full transition-all duration-200 ${
+                          isFilled
+                            ? 'bg-blue-600 scale-110 shadow-sm shadow-blue-500/50'
+                            : theme === 'light'
+                              ? 'border-2 border-slate-300 bg-slate-100'
+                              : 'border border-slate-600 bg-slate-800'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+
                 <input
                   type="password"
                   maxLength={4}
@@ -2817,22 +2875,63 @@ export default function AutoboutiqueApp() {
                     setPinInput(e.target.value);
                     setPinError(false);
                   }}
-                  className="w-36 mx-auto px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-center text-xl font-mono tracking-widest text-white outline-none focus:border-blue-500"
+                  placeholder="••••"
+                  className={`w-36 mx-auto px-4 py-2.5 rounded-xl text-center text-2xl font-mono tracking-widest outline-none transition ${
+                    theme === 'light'
+                      ? 'bg-slate-50 border-2 border-slate-300 text-slate-900 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-100'
+                      : 'bg-slate-950 border border-slate-700 text-white focus:border-blue-500'
+                  }`}
                 />
+
+                {/* Quick-test 1-Tap Fill Buttons */}
+                <div className="flex items-center justify-center gap-2 pt-0.5">
+                  <span className={`text-[10px] ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {isTh ? 'รหัสทดสอบ:' : 'Quick Test:'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { setPinInput('1234'); setPinError(false); }}
+                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition ${
+                      theme === 'light'
+                        ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'bg-blue-950/70 hover:bg-blue-900 text-blue-300 border border-blue-700/50'
+                    }`}
+                  >
+                    1234
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPinInput('8888'); setPinError(false); }}
+                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition ${
+                      theme === 'light'
+                        ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
+                        : 'bg-blue-950/70 hover:bg-blue-900 text-blue-300 border border-blue-700/50'
+                    }`}
+                  >
+                    8888
+                  </button>
+                </div>
+
                 {pinError && (
-                  <p className="text-[11px] text-red-400 font-medium">{isTh ? 'รหัส PIN ไม่ถูกต้อง' : 'Incorrect PIN'}</p>
+                  <p className="text-[11px] text-red-500 font-semibold">{isTh ? 'รหัส PIN ไม่ถูกต้อง' : 'Incorrect PIN'}</p>
                 )}
+
                 <div className="flex gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() => setAdminPinModalOpen(false)}
-                    className="flex-1 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold"
+                    className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition ${
+                      theme === 'light'
+                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
+                        : 'bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300'
+                    }`}
+                    style={{ color: theme === 'light' ? '#1E293B' : '#CBD5E1' }}
                   >
                     {isTh ? 'ยกเลิก' : 'Cancel'}
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold"
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition"
                   >
                     {isTh ? 'เข้าสู่ระบบ' : 'Unlock'}
                   </button>
@@ -3104,22 +3203,43 @@ export default function AutoboutiqueApp() {
         {/* =========================================================================
             STUDIO FOOTER
             ========================================================================= */}
-        <footer className="mt-auto border-t border-slate-900 bg-[#060913] p-4 md:p-6 text-center text-xs text-slate-500 space-y-2">
+        <footer className={`mt-auto border-t p-6 md:p-8 text-center text-xs space-y-2.5 transition-colors ${
+          theme === 'light'
+            ? 'border-slate-200 bg-slate-100/95 text-slate-600 shadow-inner'
+            : 'border-slate-900 bg-[#060913] text-slate-500'
+        }`}>
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="font-bold text-slate-300 tracking-wider uppercase font-sans">Autoboutique Phuket</span>
-            <span>•</span>
-            <span>C-Cube Automotive Co., Ltd.</span>
-            <span>•</span>
-            <a href="tel:0661098306" className="text-blue-400 hover:text-blue-300 transition font-mono">
+            <span className={`font-bold tracking-wider uppercase font-sans ${
+              theme === 'light' ? 'text-slate-800' : 'text-slate-300'
+            }`}>
+              Autoboutique Phuket
+            </span>
+            <span className={theme === 'light' ? 'text-slate-400' : 'text-slate-600'}>•</span>
+            <span className={theme === 'light' ? 'text-slate-600' : 'text-slate-400'}>
+              C-Cube Automotive Co., Ltd.
+            </span>
+            <span className={theme === 'light' ? 'text-slate-400' : 'text-slate-600'}>•</span>
+            <a
+              href="tel:0661098306"
+              className={`transition font-mono font-semibold ${
+                theme === 'light'
+                  ? 'text-blue-600 hover:text-blue-700'
+                  : 'text-blue-400 hover:text-blue-300'
+              }`}
+            >
               📞 066 109 8306
             </a>
           </div>
-          <p className="text-[11px] text-slate-600">
+          <p className={`text-[11px] max-w-2xl mx-auto leading-relaxed ${
+            theme === 'light' ? 'text-slate-500' : 'text-slate-500'
+          }`}>
             {isTh
               ? 'สตูดิโอดีเทลลิ่ง ล้างสี ดูดฝุ่น เคลือบแก้วเซรามิก และฟิล์มใสกันรอย PPF มาตรฐานสากลแห่งภูเก็ต'
               : 'Premier Automotive Detailing, Ceramic Coatings, and Paint Protection Film Studio in Phuket.'}
           </p>
-          <p className="text-[10px] text-slate-700 font-mono">
+          <p className={`text-[10px] font-mono ${
+            theme === 'light' ? 'text-slate-400' : 'text-slate-600'
+          }`}>
             © 2008 - 2026 Autoboutique Phuket. All Rights Reserved.
           </p>
         </footer>

@@ -132,13 +132,14 @@ body.theme-light .ambient-cobalt-glow,
    LIGHT MODE TARGETED COMPONENT ADAPTATIONS
    ============================================================================= */
 
-/* Headings, text, labels, and spans in light mode (safety net against white text on light backgrounds) */
+/* Headings, text, labels, strong, and spans in light mode (safety net against white text on light backgrounds) */
 .theme-light h1.text-white,
 .theme-light h2.text-white,
 .theme-light h3.text-white,
 .theme-light h4.text-white,
 .theme-light p.text-white,
 .theme-light span.text-white,
+.theme-light strong.text-white,
 .theme-light label.text-white,
 .theme-light div.text-white {
   color: #0F172A !important;
@@ -222,11 +223,15 @@ body.theme-light .ambient-cobalt-glow,
   color: #94A3B8 !important;
 }
 
-/* Preserve bright white text in primary action buttons and active pills */
+/* Preserve bright white text in primary action buttons, solid badges, bank buttons, and active pills */
 .theme-light button.bg-blue-600,
 .theme-light button.bg-blue-600 *,
 .theme-light button.bg-blue-700,
 .theme-light button.bg-blue-700 *,
+.theme-light button.bg-emerald-600,
+.theme-light button.bg-emerald-600 *,
+.theme-light button.bg-red-600,
+.theme-light button.bg-red-600 *,
 .theme-light button.bg-gradient-to-r,
 .theme-light button.bg-gradient-to-r *,
 .theme-light button.bg-gradient-to-b,
@@ -235,18 +240,45 @@ body.theme-light .ambient-cobalt-glow,
 .theme-light a.bg-gradient-to-r *,
 .theme-light .bg-blue-600,
 .theme-light .bg-blue-600 *,
+.theme-light span.bg-blue-600,
+.theme-light span.bg-blue-600.text-white,
+.theme-light .bg-blue-600 span,
+.theme-light .bg-blue-600 span.text-white,
 .theme-light .bg-blue-700,
 .theme-light .bg-blue-700 *,
 .theme-light .bg-emerald-600,
 .theme-light .bg-emerald-600 *,
+.theme-light span.bg-emerald-600,
+.theme-light span.bg-emerald-600.text-white,
 .theme-light .active-white-text,
-.theme-light .active-white-text * {
+.theme-light .active-white-text *,
+.theme-light span.active-white-text,
+.theme-light span.text-white.active-white-text,
+.theme-light [data-bank-app="true"],
+.theme-light [data-bank-app="true"] *,
+.theme-light [data-bank-app="true"] span,
+.theme-light [data-bank-app="true"] strong,
+.theme-light [data-bank-app="true"] span.text-white {
   color: #FFFFFF !important;
 }
 
-/* Light Mode Form Inputs & Selects */
+/* Secondary & Neutral Light Buttons (Cancel, Work Order, Back) */
+.theme-light button.bg-slate-100,
+.theme-light button.bg-slate-100 *,
+.theme-light button.bg-slate-200,
+.theme-light button.bg-slate-200 *,
+.theme-light button.bg-slate-50,
+.theme-light button.bg-slate-50 *,
+.theme-light a.bg-slate-100,
+.theme-light a.bg-slate-100 * {
+  color: #1E293B !important;
+}
+
+/* Light Mode Form Inputs & Selects (Including Password and Date) */
 .theme-light input[type="text"],
 .theme-light input[type="tel"],
+.theme-light input[type="password"],
+.theme-light input[type="date"],
 .theme-light select,
 .theme-light textarea {
   background-color: #FFFFFF !important;
