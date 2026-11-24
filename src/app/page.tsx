@@ -368,6 +368,25 @@ export default function AutoboutiqueApp() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [promptPayModal.open, adminPinModalOpen, walkInModalOpen, cancelModalBooking, viewSlipModalUrl, lastConfirmedBooking]);
 
+  // Prevent background scrolling on mobile & desktop when any modal is active
+  const anyModalOpen = Boolean(
+    promptPayModal.open || adminPinModalOpen || walkInModalOpen || cancelModalBooking || viewSlipModalUrl || lastConfirmedBooking
+  );
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (anyModalOpen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+    };
+  }, [anyModalOpen]);
+
   // Load Persisted Data from LocalStorage on Mount
   useEffect(() => {
     try {
@@ -695,6 +714,47 @@ export default function AutoboutiqueApp() {
         );
       }, 600);
     }
+  };
+
+  // Initiate Booking & Validate Customer Inputs Before Payment
+  const handleInitiateBookingPayment = () => {
+    const cleanName = formName.trim();
+    const cleanPhone = formPhone.trim().replace(/[^0-9]/g, '');
+    const cleanCar = formCar.trim();
+
+    if (!cleanName || !cleanPhone || !cleanCar) {
+      showToast(
+        isTh
+          ? '⚠️ กรุณาระบุชื่อ, เบอร์โทร และข้อมูลรถยนต์ ให้ครบถ้วนก่อนเปิด QR Code สแกนจองคิว'
+          : '⚠️ Please complete name, phone, and vehicle details before proceeding to QR payment',
+        4000
+      );
+      const customerSection = document.getElementById('customer-form-section');
+      if (customerSection) {
+        customerSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    if (cleanPhone.length < 9) {
+      showToast(
+        isTh
+          ? '⚠️ เบอร์โทรศัพท์ต้องมีอย่างน้อย 9-10 หลัก (เช่น 081-234-5678)'
+          : '⚠️ Phone number must contain at least 9-10 digits',
+        3500
+      );
+      const customerSection = document.getElementById('customer-form-section');
+      if (customerSection) {
+        customerSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    handleOpenPromptPayModal(
+      'booking',
+      isTh ? 'ชำระค่านัดหมายบริการล้างรถ' : 'Studio Detailing Appointment',
+      currentPrice
+    );
   };
 
   // Open Payment Modal
@@ -1163,8 +1223,8 @@ export default function AutoboutiqueApp() {
       {/* Main Container - Dual Ergonomics for Mobile and Desktop Centered */}
       <div
         className={`w-full max-w-4xl mx-auto flex flex-col min-h-screen border-x ${
-          theme === 'light' ? 'border-slate-200 bg-white/95' : 'border-slate-900/80 bg-[#080C14]/90'
-        } backdrop-blur-md transition-colors duration-300`}
+          theme === 'light' ? 'border-slate-200 bg-white' : 'border-slate-900/80 bg-[#080C14]'
+        } transition-colors duration-300`}
       >
         
         {/* =========================================================================
@@ -1423,30 +1483,62 @@ export default function AutoboutiqueApp() {
                         key={opt.id}
                         type="button"
                         onClick={() => setSelectedSubOption(opt.id)}
-                        className={`p-3.5 rounded-xl border text-left transition flex items-center justify-between gap-3 ${
+                        className={`p-3.5 rounded-xl border-2 text-left transition flex items-center justify-between gap-3 ${
                           isSelected
-                            ? 'bg-blue-950/40 border-blue-500 shadow-md shadow-blue-950/40'
-                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300'
+                            ? theme === 'light'
+                              ? 'bg-blue-50 border-blue-600 shadow-md text-blue-950'
+                              : 'bg-blue-950/80 border-blue-400 shadow-lg text-white'
+                            : theme === 'light'
+                              ? 'bg-white border-slate-300 hover:border-slate-400 text-slate-800 shadow-sm'
+                              : 'bg-slate-900/90 border-slate-700 hover:border-slate-500 text-slate-100'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div
-                            className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                              isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-600'
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                              isSelected
+                                ? 'border-blue-600 bg-blue-600 text-white active-white-text'
+                                : theme === 'light'
+                                ? 'border-slate-400 bg-slate-100'
+                                : 'border-slate-600 bg-slate-800'
                             }`}
                           >
-                            {isSelected && <CheckCheck className="w-3 h-3" />}
+                            {isSelected && <CheckCheck className="w-3 h-3 text-white active-white-text" />}
                           </div>
                           <div className="truncate">
-                            <p className="text-xs font-semibold text-white truncate">
+                            <p
+                              className={`text-xs font-bold truncate ${
+                                isSelected
+                                  ? theme === 'light'
+                                    ? 'text-blue-950 font-bold'
+                                    : 'text-white font-bold'
+                                  : theme === 'light'
+                                  ? 'text-slate-900 font-bold'
+                                  : 'text-slate-100 font-bold'
+                              }`}
+                            >
                               {isTh ? opt.labelTh : opt.labelEn}
                             </p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">
+                            <p
+                              className={`text-[10px] mt-0.5 font-medium ${
+                                theme === 'light' ? 'text-slate-600' : 'text-slate-400'
+                              }`}
+                            >
                               {opt.addPrice > 0 ? `+฿${opt.addPrice} บาท` : isTh ? 'รวมในแพ็กเกจแล้ว' : 'Included in Base'}
                             </p>
                           </div>
                         </div>
-                        <span className="text-xs font-bold text-blue-400 shrink-0">
+                        <span
+                          className={`text-xs font-bold shrink-0 ${
+                            isSelected
+                              ? theme === 'light'
+                                ? 'text-blue-700'
+                                : 'text-blue-300'
+                              : theme === 'light'
+                              ? 'text-blue-600'
+                              : 'text-blue-400'
+                          }`}
+                        >
                           {opt.addPrice > 0 ? `+฿${opt.addPrice}` : '฿0'}
                         </span>
                       </button>
@@ -1499,10 +1591,12 @@ export default function AutoboutiqueApp() {
                         key={w.weekIndex}
                         type="button"
                         onClick={() => setSelectedWeekIdx(idx)}
-                        className={`px-3 py-1.5 rounded-lg border shrink-0 text-xs font-medium transition ${
+                        className={`px-3.5 py-1.5 rounded-lg border-2 shrink-0 text-xs font-bold transition ${
                           selectedWeekIdx === idx
-                            ? 'bg-blue-900/40 border-blue-500 text-blue-200 font-semibold'
-                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white'
+                            ? 'bg-blue-600 border-blue-400 text-white active-white-text shadow-md'
+                            : theme === 'light'
+                            ? 'bg-white border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900 shadow-sm'
+                            : 'bg-slate-900/90 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
                         }`}
                       >
                         {isTh ? w.monthTh : w.monthEn} ({isTh ? `สัปดาห์ที่ ${w.weekIndex + 1}` : `Week ${w.weekIndex + 1}`})
@@ -1522,17 +1616,47 @@ export default function AutoboutiqueApp() {
                           onClick={() => {
                             if (!day.isClosed) setSelectedDate(day.dateStr);
                           }}
-                          className={`p-3 rounded-xl border text-center transition flex flex-col items-center justify-center min-h-[78px] ${
+                          className={`p-3 rounded-xl border-2 text-center transition flex flex-col items-center justify-center min-h-[82px] ${
                             day.isClosed
-                              ? 'bg-slate-950/40 border-slate-900 opacity-40 cursor-not-allowed text-slate-600'
+                              ? 'bg-slate-100 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 opacity-50 cursor-not-allowed text-slate-400 dark:text-slate-600'
                               : isSelected
-                              ? 'bg-blue-900/50 border-blue-500 shadow-md shadow-blue-900/30'
-                              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300'
+                              ? 'bg-gradient-to-b from-blue-600 to-blue-700 border-blue-300 text-white active-white-text shadow-lg ring-2 ring-blue-500/30'
+                              : theme === 'light'
+                              ? 'bg-white border-slate-300 hover:border-blue-500 text-slate-700 shadow-sm'
+                              : 'bg-slate-900/90 border-slate-700 hover:border-slate-500 text-slate-200'
                           }`}
                         >
-                          <span className="text-[11px] uppercase font-medium">{isTh ? day.dayTh : day.dayEn}</span>
-                          <span className="text-base font-bold my-0.5 text-white">{day.dateNum}</span>
-                          <span className="text-[10px] text-slate-400">
+                          <span
+                            className={`text-[11px] uppercase font-bold ${
+                              isSelected
+                                ? 'text-blue-100 active-white-text'
+                                : theme === 'light'
+                                ? 'text-slate-600'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {isTh ? day.dayTh : day.dayEn}
+                          </span>
+                          <span
+                            className={`text-lg font-black my-0.5 ${
+                              isSelected
+                                ? 'text-white active-white-text'
+                                : theme === 'light'
+                                ? 'text-slate-900'
+                                : 'text-white'
+                            }`}
+                          >
+                            {day.dateNum}
+                          </span>
+                          <span
+                            className={`text-[10px] font-medium ${
+                              isSelected
+                                ? 'text-blue-100 active-white-text'
+                                : theme === 'light'
+                                ? 'text-slate-500'
+                                : 'text-slate-400'
+                            }`}
+                          >
                             {day.isClosed ? (isTh ? 'ปิดทำการ' : 'Closed') : (isTh ? currentWeekSchedule.monthTh : currentWeekSchedule.monthEn)}
                           </span>
                         </button>
@@ -1546,7 +1670,7 @@ export default function AutoboutiqueApp() {
               {calendarViewMode === 'month' && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-300">
+                    <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
                       {isTh ? currentMonthData.labelTh : currentMonthData.labelEn}
                     </span>
                     <div className="flex items-center gap-1.5 overflow-x-auto max-w-[210px] sm:max-w-none pb-0.5">
@@ -1555,10 +1679,12 @@ export default function AutoboutiqueApp() {
                           key={m.key}
                           type="button"
                           onClick={() => setSelectedMonthIdx(idx)}
-                          className={`px-2.5 py-1 rounded text-[11px] font-medium border ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 transition ${
                             selectedMonthIdx === idx
-                              ? 'bg-blue-600 border-blue-500 text-white'
-                              : 'bg-slate-900 border-slate-800 text-slate-400'
+                              ? 'bg-blue-600 border-blue-400 text-white active-white-text shadow-sm'
+                              : theme === 'light'
+                              ? 'bg-white border-slate-300 text-slate-700 hover:border-slate-400 font-semibold shadow-sm'
+                              : 'bg-slate-900/90 border-slate-700 text-slate-300 hover:border-slate-500 font-semibold'
                           }`}
                         >
                           {isTh ? m.shortTh : m.shortEn}
@@ -1569,7 +1695,7 @@ export default function AutoboutiqueApp() {
 
                   <div className="grid grid-cols-7 gap-1.5 text-center text-xs">
                     {['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'].map((d, i) => (
-                      <span key={d} className={`py-1 text-[11px] font-semibold ${i === 6 ? 'text-red-400' : 'text-slate-400'}`}>
+                      <span key={d} className={`py-1 text-[11px] font-bold ${i === 6 ? 'text-red-500' : theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
                         {d}
                       </span>
                     ))}
@@ -1584,12 +1710,14 @@ export default function AutoboutiqueApp() {
                           onClick={() => {
                             if (!d.isClosed) setSelectedDate(d.dateStr);
                           }}
-                          className={`h-9 rounded-lg border text-xs font-semibold transition flex items-center justify-center ${
+                          className={`h-9 rounded-lg border-2 text-xs font-bold transition flex items-center justify-center ${
                             d.isClosed
-                              ? 'bg-slate-950 border-slate-900 text-slate-600 opacity-40 cursor-not-allowed'
+                              ? 'bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 opacity-40 cursor-not-allowed'
                               : isSelected
-                              ? 'bg-blue-600 border-blue-400 text-white'
-                              : 'bg-slate-900 border-slate-800 hover:border-slate-700 text-slate-200'
+                              ? 'bg-blue-600 border-blue-300 text-white active-white-text shadow-md ring-2 ring-blue-400/40'
+                              : theme === 'light'
+                              ? 'bg-white border-slate-300 hover:border-blue-500 text-slate-900 shadow-sm'
+                              : 'bg-slate-900/90 border-slate-700 hover:border-slate-500 text-slate-100'
                           }`}
                         >
                           {d.dayNum}
@@ -1603,10 +1731,10 @@ export default function AutoboutiqueApp() {
               {/* Time Slots Selection Matrix */}
               <div className="space-y-2.5 pt-2 border-t border-slate-800/80">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-300 uppercase tracking-wider">
+                  <span className={`font-bold uppercase tracking-wider ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
                     {isTh ? 'รอบเวลาบริการ (Studio Bay Capacity: 2 ช่องบริการ/รอบ):' : 'Select Time Slot:'}
                   </span>
-                  <span className="text-[11px] text-blue-400 font-medium">
+                  <span className="text-[11px] text-blue-600 dark:text-blue-400 font-bold">
                     {formatBookingDate(selectedDate, lang)}
                   </span>
                 </div>
@@ -1622,22 +1750,32 @@ export default function AutoboutiqueApp() {
                         type="button"
                         disabled={avail.isFull}
                         onClick={() => setBookingTimeSlot(slot)}
-                        className={`p-3 rounded-xl border text-center transition flex flex-col items-center justify-center ${
+                        className={`p-3 rounded-xl border-2 text-center transition flex flex-col items-center justify-center ${
                           avail.isFull
-                            ? 'bg-slate-950/50 border-slate-900 text-slate-600 cursor-not-allowed'
+                            ? 'bg-slate-100 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
                             : isSelected
-                            ? 'bg-blue-900/50 border-blue-500 shadow-md shadow-blue-900/30'
-                            : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-200'
+                            ? 'bg-gradient-to-b from-blue-600 to-blue-700 border-blue-300 text-white active-white-text shadow-lg ring-2 ring-blue-500/30'
+                            : theme === 'light'
+                            ? 'bg-white border-slate-300 hover:border-blue-500 text-slate-900 shadow-sm'
+                            : 'bg-slate-900/90 border-slate-700 hover:border-slate-500 text-white'
                         }`}
                       >
-                        <span className="text-sm font-bold text-white">{slot} น.</span>
+                        <span className={`text-sm font-black ${isSelected ? 'text-white active-white-text' : theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                          {slot} น.
+                        </span>
                         <span
-                          className={`text-[10px] mt-1 font-medium px-1.5 py-0.5 rounded-full ${
+                          className={`text-[10px] mt-1 font-bold px-2 py-0.5 rounded-full border ${
                             avail.isFull
-                              ? 'bg-red-950/60 text-red-400 border border-red-900/50'
+                              ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30'
+                              : isSelected
+                              ? 'bg-white/20 text-white border-white/40 active-white-text'
                               : avail.available === 1
-                              ? 'bg-amber-950/60 text-amber-300 border border-amber-900/50'
-                              : 'bg-emerald-950/60 text-emerald-300 border border-emerald-900/50'
+                              ? theme === 'light'
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-amber-950/60 text-amber-300 border-amber-800'
+                              : theme === 'light'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
                           }`}
                         >
                           {avail.isFull
@@ -1654,18 +1792,34 @@ export default function AutoboutiqueApp() {
             </section>
 
             {/* STEP 3: CLIENT & VEHICLE PROFILE */}
-            <section className="luxe-panel rounded-2xl p-4 md:p-6 space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
-                <Car className="w-4 h-4 text-blue-400" />
-                <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider">
-                  {isTh ? 'ข้อมูลลูกค้าและรถยนต์' : 'Client & Vehicle Profile'}
-                </h3>
+            <section id="customer-form-section" className="luxe-panel rounded-2xl p-4 md:p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <Car className="w-4 h-4 text-blue-400" />
+                  <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider">
+                    {isTh ? 'ข้อมูลลูกค้าและรถยนต์' : 'Client & Vehicle Profile'}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormName('คุณปิยวัฒน์ (ลูกค้า VIP)');
+                    setFormPhone('066 109 8306');
+                    setFormCar('Porsche Cayenne 9กก 8899 ภูเก็ต');
+                    showToast(isTh ? '⚡ กรอกข้อมูลทดสอบด่วนเรียบร้อย' : '⚡ Test data auto-filled', 2500);
+                  }}
+                  className="text-[11px] font-semibold text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline flex items-center gap-1 transition"
+                  title="คลิกเพื่อกรอกข้อมูลตัวอย่างสำหรับทดสอบระบบทันที"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{isTh ? 'กรอกข้อมูลทดสอบด่วน' : 'Auto-fill Test Data'}</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 {/* Client Full Name */}
                 <div className="space-y-1.5">
-                  <label className="text-slate-300 font-medium">
+                  <label className={`font-semibold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
                     {isTh ? 'ชื่อ-นามสกุล ผู้ติดต่อ' : 'Client Full Name'}:
                   </label>
                   <input
@@ -1674,19 +1828,19 @@ export default function AutoboutiqueApp() {
                     placeholder={isTh ? 'ระบุชื่อ-นามสกุล ของท่าน' : 'e.g. John Doe'}
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 transition font-medium"
                   />
                 </div>
 
                 {/* Mobile Number with Auto-formatting and Live Validation */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-slate-300 font-medium">
+                    <label className={`font-semibold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
                       {isTh ? 'เบอร์โทรศัพท์มือถือ' : 'Mobile Phone'}:
                     </label>
                     {formPhone && (
-                      <span className={`text-[10px] font-semibold flex items-center gap-1 ${
-                        isValidThaiPhone(formPhone) ? 'text-emerald-400' : 'text-amber-400'
+                      <span className={`text-[10px] font-bold flex items-center gap-1 ${
+                        isValidThaiPhone(formPhone) ? 'text-emerald-500 dark:text-emerald-400' : 'text-amber-500 dark:text-amber-400'
                       }`}>
                         {isValidThaiPhone(formPhone) ? '✓ ถูกต้อง' : '10 หลัก (08X-XXX-XXXX)'}
                       </span>
@@ -1699,13 +1853,13 @@ export default function AutoboutiqueApp() {
                     placeholder="08X-XXX-XXXX"
                     value={formPhone}
                     onChange={(e) => setFormPhone(formatPhoneInput(e.target.value))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition font-mono"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 transition font-mono font-medium"
                   />
                 </div>
 
                 {/* Vehicle Model & License Plate */}
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-slate-300 font-medium">
+                  <label className={`font-semibold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
                     {isTh ? 'ยี่ห้อ รุ่น และทะเบียนรถยนต์' : 'Vehicle Model & License Plate'}:
                   </label>
                   <input
@@ -1714,44 +1868,60 @@ export default function AutoboutiqueApp() {
                     placeholder={isTh ? 'ระบุยี่ห้อ รุ่น และเลขทะเบียน (เช่น Honda Civic กข 1234 ภูเก็ต)' : 'e.g. Honda Civic (1กข 1234 Phuket)'}
                     value={formCar}
                     onChange={(e) => setFormCar(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-blue-500 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 transition font-medium"
                   />
                 </div>
 
                 {/* VIP Pick-up / Delivery Service Toggle */}
                 <div className="sm:col-span-2 pt-1">
-                  <label className="p-3 rounded-xl border border-slate-800 bg-slate-900/60 flex items-center justify-between cursor-pointer hover:border-slate-700 transition">
+                  <label className={`p-3.5 rounded-xl border-2 flex items-center justify-between cursor-pointer transition ${
+                    vipDelivery
+                      ? theme === 'light'
+                        ? 'bg-blue-50 border-blue-600 shadow-sm'
+                        : 'bg-blue-950/70 border-blue-400 shadow-md'
+                      : theme === 'light'
+                      ? 'bg-white border-slate-300 hover:border-slate-400 shadow-sm'
+                      : 'bg-slate-900/90 border-slate-700 hover:border-slate-600'
+                  }`}>
                     <div className="flex items-center gap-3">
                       <input
                         type="checkbox"
                         checked={vipDelivery}
                         onChange={(e) => setVipDelivery(e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0"
+                        className="w-4 h-4 rounded border-slate-400 bg-white dark:bg-slate-900 text-blue-600 focus:ring-0"
                       />
                       <div>
-                        <p className="text-xs font-semibold text-white">
+                        <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
                           {isTh ? 'ต้องการบริการ รับ-ส่ง รถยนต์ระดับ VIP (Phuket Concierge Delivery)' : 'Request VIP Vehicle Delivery'}
                         </p>
-                        <p className="text-[10px] text-slate-400">
+                        <p className={`text-[10px] mt-0.5 font-medium ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
                           {isTh ? 'เจ้าหน้าที่จะโทรยืนยันสถานที่รับรถล่วงหน้า 30 นาที' : 'Concierge team will contact for pickup coordination'}
                         </p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-blue-400 shrink-0">FREE</span>
+                    <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400 shrink-0 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">
+                      FREE
+                    </span>
                   </label>
                 </div>
               </div>
             </section>
 
             {/* ACTION BAR: PROCEED TO PAYMENT & VERIFICATION */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-blue-950/60 border border-blue-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className={`p-4 sm:p-5 rounded-2xl border-2 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+              theme === 'light'
+                ? 'bg-gradient-to-r from-blue-50 via-white to-blue-50 border-blue-200 shadow-lg text-slate-900'
+                : 'bg-gradient-to-r from-blue-950/90 via-slate-900 to-blue-950/90 border-blue-500/40 shadow-xl text-white'
+            }`}>
               <div>
-                <p className="text-xs text-slate-300 font-medium">
+                <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
                   {isTh ? 'สรุปยอดนัดหมายเข้ารับบริการ' : 'Appointment Total:'}
                 </p>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl md:text-3xl font-extrabold text-white">฿{currentPrice.toLocaleString()}</span>
-                  <span className="text-xs text-blue-400 font-medium">
+                <div className="flex items-baseline gap-2 mt-0.5">
+                  <span className={`text-2xl md:text-3xl font-black ${theme === 'light' ? 'text-slate-950' : 'text-white'}`}>
+                    ฿{currentPrice.toLocaleString()}
+                  </span>
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                     {isTh ? '(รวมภาษีและผลิตภัณฑ์สตูดิโอ)' : '(Net Total)'}
                   </span>
                 </div>
@@ -1768,23 +1938,25 @@ export default function AutoboutiqueApp() {
                         handleCompleteBookingPayment('package', availPkg.id);
                       }
                     }}
-                    className="flex-1 sm:flex-none px-4 py-3 rounded-xl bg-slate-900 border border-blue-500/40 text-blue-300 hover:text-white hover:bg-slate-800 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                    className={`flex-1 sm:flex-none px-4 py-3 rounded-xl border-2 text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                      theme === 'light'
+                        ? 'bg-white border-blue-600 text-blue-900 hover:bg-blue-50 shadow-sm'
+                        : 'bg-slate-900 border-blue-500/40 text-blue-300 hover:text-white hover:bg-slate-800'
+                    }`}
                   >
-                    <Ticket className="w-4 h-4 text-blue-400" />
+                    <Ticket className="w-4 h-4 text-blue-500 shrink-0" />
                     <span>{isTh ? 'ใช้สิทธิ์แพ็คเกจ (฿0)' : 'Redeem Pass'}</span>
                   </button>
                 )}
 
                 <button
                   type="button"
-                  onClick={() => {
-                    handleOpenPromptPayModal('booking', isTh ? 'ชำระค่านัดหมายบริการล้างรถ' : 'Studio Detailing Appointment', currentPrice);
-                  }}
-                  className="flex-1 sm:flex-none px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs md:text-sm font-bold shadow-lg shadow-blue-900/40 transition flex items-center justify-center gap-2"
+                  onClick={handleInitiateBookingPayment}
+                  className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 active:scale-[0.99] text-white active-white-text text-xs md:text-sm font-bold shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <QrCode className="w-4 h-4" />
-                  <span>{isTh ? 'สแกน QR Code & แนบสลิปจองคิว' : 'Scan PromptPay & Confirm'}</span>
-                  <ChevronRight className="w-4 h-4" />
+                  <QrCode className="w-4 h-4 text-white shrink-0" />
+                  <span className="text-white active-white-text">{isTh ? 'สแกน QR Code & แนบสลิปจองคิว' : 'Scan PromptPay & Confirm'}</span>
+                  <ChevronRight className="w-4 h-4 text-white shrink-0" />
                 </button>
               </div>
             </div>
@@ -2323,12 +2495,17 @@ export default function AutoboutiqueApp() {
             PROMPTPAY & SLIP VERIFICATION MODAL (Optimized for 1-Device Mobile & Desktop)
             ========================================================================= */}
         {promptPayModal.open && (
-          <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in ${
-            theme === 'light' ? 'bg-slate-900/40 backdrop-blur-md' : 'bg-black/80 backdrop-blur-md'
-          }`}>
-            <div className={`rounded-2xl w-full max-w-lg p-4 sm:p-5 space-y-4 max-h-[90vh] max-h-[90dvh] overflow-y-auto overscroll-contain shadow-2xl transition-all ${
-              theme === 'light' ? 'bg-white border border-slate-200 text-slate-900' : 'luxe-panel text-white'
-            }`}>
+          <div
+            className={`fixed inset-0 z-50 overflow-y-auto overscroll-contain ${
+              theme === 'light' ? 'bg-slate-950/80' : 'bg-black/90'
+            }`}
+          >
+            <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
+              <div
+                className={`w-full max-w-lg rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xl border transition-all text-left ${
+                  theme === 'light' ? 'bg-white border-slate-300 text-slate-900' : 'luxe-panel border-slate-700 text-white'
+                }`}
+              >
               {/* Header */}
               <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-2.5">
@@ -2350,15 +2527,41 @@ export default function AutoboutiqueApp() {
                   <button
                     type="button"
                     onClick={() => setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 })}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    aria-label="Close"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
+              {/* Luxury Booking Context Summary Strip (Visible when paying for an appointment) */}
+              {promptPayModal.type === 'booking' && (
+                <div
+                  className={`p-3 rounded-xl border-2 space-y-1.5 ${
+                    theme === 'light'
+                      ? 'bg-blue-50/90 border-blue-200 text-slate-900'
+                      : 'bg-blue-950/60 border-blue-900/80 text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold text-xs">
+                    <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                      <CalendarIcon className="w-3.5 h-3.5" />
+                      <span>{selectedDate} • {bookingTimeSlot} น.</span>
+                    </span>
+                    <span className="text-blue-700 dark:text-blue-300 font-black font-mono">฿{promptPayModal.amount.toFixed(2)}</span>
+                  </div>
+                  <div className={`text-[11px] font-medium flex items-center justify-between ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                    <span className="truncate">🚗 {formCar || 'รถยนต์ลูกค้า'} ({formName || 'ลูกค้า VIP'})</span>
+                    <span className="shrink-0 font-bold text-blue-600 dark:text-blue-400">
+                      {vipDelivery ? '✨ รับ-ส่ง VIP ฟรี' : 'สตูดิโอ'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Centerpiece: High-Contrast White PromptPay QR Card */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-md text-slate-900 text-center space-y-3">
+              <div className="p-4 rounded-2xl bg-white border-2 border-slate-200 dark:border-slate-800 shadow-md text-slate-900 text-center space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2 px-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-black tracking-wider text-blue-800 font-sans">THAI QR PAYMENT</span>
@@ -2376,7 +2579,7 @@ export default function AutoboutiqueApp() {
                   {qrLoading || !qrDataUrl ? (
                     <div className="flex flex-col items-center gap-2 text-slate-400">
                       <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-                      <span className="text-xs">กำลังสร้าง QR Code...</span>
+                      <span className="text-xs font-medium">กำลังสร้าง QR Code...</span>
                     </div>
                   ) : (
                     <img
@@ -2412,12 +2615,12 @@ export default function AutoboutiqueApp() {
                 <button
                   type="button"
                   onClick={() => handleOneTapMobilePay(promptPayModal.amount)}
-                  className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/30"
+                  className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white active-white-text text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/30 cursor-pointer"
                 >
-                  <Download className="w-4 h-4 text-sky-200 shrink-0" />
-                  <span>
+                  <Download className="w-4 h-4 text-white shrink-0" />
+                  <span className="text-white active-white-text">
                     {hasOneTapTriggered
-                      ? isTh ? '✓ บันทึกภาพแล้ว (กดซ้ำได้)' : '✓ Saved to Photos'
+                      ? isTh ? '✓ บันทึกภาพแล้ว' : '✓ Saved to Photos'
                       : isTh ? '📥 บันทึกรูป QR ลงเครื่อง' : '📥 Save QR Image'}
                   </span>
                 </button>
@@ -2425,12 +2628,16 @@ export default function AutoboutiqueApp() {
                 <button
                   type="button"
                   onClick={handleCopyPromptPay}
-                  className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-1.5 shadow-sm"
+                  className={`py-2.5 px-3 rounded-xl active:scale-95 text-xs font-bold transition border-2 flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
+                    theme === 'light'
+                      ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
+                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white'
+                  }`}
                 >
                   {copiedPromptPay ? (
                     <>
-                      <CheckCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span className="text-emerald-400">{isTh ? 'คัดลอกเลขแล้ว' : 'Copied'}</span>
+                      <CheckCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">{isTh ? 'คัดลอกเลขแล้ว' : 'Copied'}</span>
                     </>
                   ) : (
                     <>
@@ -2581,14 +2788,15 @@ export default function AutoboutiqueApp() {
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* =========================================================================
             ADMIN PIN MODAL
             ========================================================================= */}
         {adminPinModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="luxe-panel rounded-2xl w-full max-w-sm p-5 space-y-4 text-center">
+          <div className="fixed inset-0 z-50 bg-black/85 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
+            <div className="luxe-panel rounded-2xl w-full max-w-sm p-5 space-y-4 text-center my-auto shadow-2xl">
               <div className="w-12 h-12 rounded-full bg-blue-950 border border-blue-500/40 flex items-center justify-center mx-auto text-blue-400">
                 <Lock className="w-5 h-5" />
               </div>
@@ -2638,8 +2846,8 @@ export default function AutoboutiqueApp() {
             ADMIN WALK-IN MODAL
             ========================================================================= */}
         {walkInModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4">
+          <div className="fixed inset-0 z-50 bg-black/85 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
+            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4 my-auto shadow-2xl">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <h3 className="text-base font-bold text-white">
                   {isTh ? 'บันทึกคิวลูกค้า Walk-in (฿1 - ทดสอบ)' : 'New Walk-in Reception'}
@@ -2710,8 +2918,8 @@ export default function AutoboutiqueApp() {
             CANCEL BOOKING CONFIRMATION MODAL (15-MIN RULE ENFORCED)
             ========================================================================= */}
         {cancelModalBooking && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4">
+          <div className="fixed inset-0 z-50 bg-black/85 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
+            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4 my-auto shadow-2xl">
               <div className="flex items-center gap-2.5 text-amber-400">
                 <ShieldAlert className="w-5 h-5 shrink-0" />
                 <h3 className="text-base font-bold text-white">{isTh ? 'ยืนยันการยกเลิกนัดหมาย' : 'Cancel Appointment'}</h3>
@@ -2764,8 +2972,8 @@ export default function AutoboutiqueApp() {
             SLIP INSPECTION MODAL
             ========================================================================= */}
         {viewSlipModalUrl && (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-            <div className="luxe-panel rounded-2xl w-full max-w-sm p-4 space-y-3">
+          <div className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
+            <div className="luxe-panel rounded-2xl w-full max-w-sm p-4 space-y-3 my-auto shadow-2xl">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                 <span className="text-xs font-bold text-white">{isTh ? 'ตรวจสอบสลิปโอนเงิน' : 'Payment Slip Inspection'}</span>
                 <button
@@ -2787,19 +2995,28 @@ export default function AutoboutiqueApp() {
             PRINTABLE VIP WORK ORDER & RECEIPT MODAL
             ========================================================================= */}
         {lastConfirmedBooking && (
-          <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in ${
-            theme === 'light' ? 'bg-slate-900/40 backdrop-blur-md' : 'bg-black/85 backdrop-blur-md'
-          }`}>
-            <div className="luxe-panel rounded-2xl w-full max-w-md p-4 sm:p-5 space-y-4 max-h-[90vh] max-h-[90dvh] overflow-y-auto overscroll-contain shadow-2xl">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div
+            className={`fixed inset-0 z-50 overflow-y-auto overscroll-contain ${
+              theme === 'light' ? 'bg-slate-950/80' : 'bg-black/90'
+            }`}
+          >
+            <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
+              <div
+                className={`w-full max-w-md rounded-2xl p-4 sm:p-5 space-y-4 shadow-2xl border transition-all text-left ${
+                  theme === 'light' ? 'bg-white border-slate-300 text-slate-900' : 'luxe-panel border-slate-700 text-white'
+                }`}
+              >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-2">
-                  <CheckCheck className="w-5 h-5 text-emerald-400" />
-                  <h3 className="text-base font-bold text-white">{isTh ? 'ใบเสร็จรับเงินสตูดิโอ (VIP Work Order)' : 'Studio Detailing Receipt'}</h3>
+                  <CheckCheck className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {isTh ? 'ใบเสร็จรับเงินสตูดิโอ (VIP Work Order)' : 'Studio Detailing Receipt'}
+                  </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setLastConfirmedBooking(null)}
-                  className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition active:scale-95"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition active:scale-95"
                   aria-label="Close receipt"
                 >
                   <X className="w-4 h-4" />
@@ -2807,39 +3024,45 @@ export default function AutoboutiqueApp() {
               </div>
 
               {/* Printable Invoice Card */}
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3 text-xs">
-                <div className="text-center pb-3 border-b border-slate-900">
-                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">AUTOBOUTIQUE PHUKET</h4>
-                  <p className="text-[10px] text-slate-400">Operated by C-Cube Automotive (Since 2008)</p>
-                  <p className="text-[10px] text-blue-400 font-mono mt-1">NO: {lastConfirmedBooking.id}</p>
+              <div
+                className={`p-4 rounded-xl border space-y-3 text-xs ${
+                  theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-950 border-slate-800 text-white'
+                }`}
+              >
+                <div className="text-center pb-3 border-b border-slate-200 dark:border-slate-900">
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">AUTOBOUTIQUE PHUKET</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Operated by C-Cube Automotive (Since 2008)</p>
+                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-mono font-bold mt-1">NO: {lastConfirmedBooking.id}</p>
                 </div>
 
                 <div className="space-y-1.5 text-[11px]">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">{isTh ? 'ลูกค้า' : 'Client'}:</span>
-                    <span className="text-white font-semibold">{lastConfirmedBooking.customerName}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{isTh ? 'ลูกค้า' : 'Client'}:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{lastConfirmedBooking.customerName}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">{isTh ? 'เบอร์ติดต่อ' : 'Phone'}:</span>
-                    <span className="text-white font-mono">{lastConfirmedBooking.phone}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{isTh ? 'เบอร์ติดต่อ' : 'Phone'}:</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">{lastConfirmedBooking.phone}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">{isTh ? 'ยานยนต์' : 'Vehicle'}:</span>
-                    <span className="text-white font-semibold">{lastConfirmedBooking.carInfo}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{isTh ? 'ยานยนต์' : 'Vehicle'}:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{lastConfirmedBooking.carInfo}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">{isTh ? 'วันเวลานัดหมาย' : 'Appointment'}:</span>
-                    <span className="text-blue-400 font-semibold">{lastConfirmedBooking.date} ({lastConfirmedBooking.timeSlot} น.)</span>
+                    <span className="text-slate-500 dark:text-slate-400">{isTh ? 'วันเวลานัดหมาย' : 'Appointment'}:</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">
+                      {lastConfirmedBooking.date} ({lastConfirmedBooking.timeSlot} น.)
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">{isTh ? 'บริการ' : 'Service'}:</span>
-                    <span className="text-white text-right max-w-[200px]">{lastConfirmedBooking.service}</span>
+                    <span className="text-slate-500 dark:text-slate-400">{isTh ? 'บริการ' : 'Service'}:</span>
+                    <span className="text-right max-w-[200px] font-bold text-slate-900 dark:text-white">{lastConfirmedBooking.service}</span>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-900 flex justify-between items-baseline text-sm">
-                  <span className="font-bold text-slate-300">{isTh ? 'ยอดชำระสุทธิ' : 'Total Paid'}:</span>
-                  <span className="text-lg font-extrabold text-blue-400 font-sans">
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-900 flex justify-between items-baseline text-sm">
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{isTh ? 'ยอดชำระสุทธิ' : 'Total Paid'}:</span>
+                  <span className="text-lg font-black text-blue-600 dark:text-blue-400 font-mono">
                     ฿{(lastConfirmedBooking.paidAmount || 0).toLocaleString()}
                   </span>
                 </div>
@@ -2850,7 +3073,11 @@ export default function AutoboutiqueApp() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                  className={`flex-1 py-2.5 rounded-xl border-2 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    theme === 'light'
+                      ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
+                      : 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-white'
+                  }`}
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>{isTh ? 'พิมพ์ใบเสร็จ' : 'Print'}</span>
@@ -2863,15 +3090,16 @@ export default function AutoboutiqueApp() {
                     );
                     showToast(isTh ? 'คัดลอกข้อมูลใบเสร็จเรียบร้อย' : 'Copied to clipboard', 2500);
                   }}
-                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white active-white-text text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-blue-600/30"
                 >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>{isTh ? 'แชร์ / คัดลอก' : 'Share'}</span>
+                  <Share2 className="w-3.5 h-3.5 text-white" />
+                  <span className="text-white active-white-text">{isTh ? 'แชร์ / คัดลอก' : 'Share'}</span>
                 </button>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* =========================================================================
             STUDIO FOOTER

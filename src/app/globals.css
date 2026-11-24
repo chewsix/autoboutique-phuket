@@ -132,11 +132,15 @@ body.theme-light .ambient-cobalt-glow,
    LIGHT MODE TARGETED COMPONENT ADAPTATIONS
    ============================================================================= */
 
-/* Headings and primary labels in light mode */
+/* Headings, text, labels, and spans in light mode (safety net against white text on light backgrounds) */
 .theme-light h1.text-white,
 .theme-light h2.text-white,
 .theme-light h3.text-white,
-.theme-light h4.text-white {
+.theme-light h4.text-white,
+.theme-light p.text-white,
+.theme-light span.text-white,
+.theme-light label.text-white,
+.theme-light div.text-white {
   color: #0F172A !important;
 }
 
@@ -182,14 +186,23 @@ body.theme-light .ambient-cobalt-glow,
   color: #1E3A8A !important;
 }
 
-/* Borders in light mode */
+/* Borders in light mode - clear, crisp contrast */
 .theme-light .border-slate-800,
 .theme-light .border-slate-800\/80,
 .theme-light .border-slate-800\/60,
 .theme-light .border-slate-900,
 .theme-light .border-slate-900\/80,
 .theme-light .border-slate-700 {
-  border-color: #E2E8F0 !important;
+  border-color: #CBD5E1 !important;
+}
+
+/* Borders in dark mode - ensure cards never blend into dark luxe-panel */
+.theme-dark .luxe-panel .border-slate-800,
+.theme-dark .border-slate-800 {
+  border-color: rgba(51, 65, 85, 0.75) !important;
+}
+.theme-dark .border-slate-700 {
+  border-color: rgba(71, 85, 105, 0.85) !important;
 }
 
 /* Text adjustments for light mode */
@@ -209,16 +222,25 @@ body.theme-light .ambient-cobalt-glow,
   color: #94A3B8 !important;
 }
 
-/* Preserve bright white text in primary action buttons and badges */
+/* Preserve bright white text in primary action buttons and active pills */
 .theme-light button.bg-blue-600,
 .theme-light button.bg-blue-600 *,
+.theme-light button.bg-blue-700,
+.theme-light button.bg-blue-700 *,
 .theme-light button.bg-gradient-to-r,
 .theme-light button.bg-gradient-to-r *,
+.theme-light button.bg-gradient-to-b,
+.theme-light button.bg-gradient-to-b *,
 .theme-light a.bg-gradient-to-r,
 .theme-light a.bg-gradient-to-r *,
-.theme-light .bg-blue-600.text-white,
+.theme-light .bg-blue-600,
+.theme-light .bg-blue-600 *,
+.theme-light .bg-blue-700,
+.theme-light .bg-blue-700 *,
 .theme-light .bg-emerald-600,
-.theme-light .bg-emerald-600 * {
+.theme-light .bg-emerald-600 *,
+.theme-light .active-white-text,
+.theme-light .active-white-text * {
   color: #FFFFFF !important;
 }
 
