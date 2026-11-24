@@ -394,7 +394,7 @@ export default function AutoboutiqueApp() {
         const savedBookings = localStorage.getItem('autoboutique_luxe_bookings');
         if (savedBookings) {
           const parsed = JSON.parse(savedBookings);
-          if (Array.isArray(parsed) && parsed.length > 0) setBookings(parsed);
+          if (Array.isArray(parsed)) setBookings(parsed);
         }
         const savedActiveCar = localStorage.getItem('autoboutique_luxe_active_car_id');
         if (savedActiveCar) setActiveCarId(savedActiveCar);
@@ -1032,9 +1032,11 @@ export default function AutoboutiqueApp() {
     );
   };
 
-  // Admin Cancel Booking with 15-Minute Policy Enforcement
+  // Admin Cancel / Delete Booking with 15-Minute Policy Enforcement
   const handleConfirmCancelBooking = () => {
     if (!cancelModalBooking) return;
+    const targetId = cancelModalBooking.id;
+    const targetCarInfo = cancelModalBooking.carInfo;
     const policyResult = checkCancellationPackagePolicy(cancelModalBooking);
 
     if (policyResult.isPackageBooking && policyResult.willRefundQuota && cancelModalBooking.usedPackageId) {
@@ -1053,16 +1055,33 @@ export default function AutoboutiqueApp() {
       );
     }
 
-    setBookings((prev) => prev.filter((b) => b.id !== cancelModalBooking.id));
-    updateRemoteBookingStatus(cancelModalBooking.id, 'cancelled');
+    // Synchronously purge from memory and LocalStorage to guarantee it disappears
+    setBookings((prev) => {
+      const next = prev.filter((b) => b.id !== targetId);
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('autoboutique_luxe_bookings', JSON.stringify(next));
+        }
+      } catch (e) {
+        console.warn('Sync bookings delete error:', e);
+      }
+      return next;
+    });
+
+    if (activeCarId === targetId) {
+      setActiveCarId('');
+      try {
+        localStorage.removeItem('autoboutique_luxe_active_car_id');
+      } catch (e) {}
+    }
+
+    updateRemoteBookingStatus(targetId, 'cancelled');
     setCancelModalBooking(null);
 
     showToast(
-      policyResult.isPackageBooking
-        ? policyResult.messageTh
-        : isTh
-        ? `🗑️ ยกเลิกคิว ${cancelModalBooking.id} เรียบร้อย`
-        : 'Booking cancelled',
+      isTh
+        ? `🗑️ ลบคิว #${targetId} (${targetCarInfo}) ออกจากระบบเรียบร้อย`
+        : `Booking #${targetId} deleted successfully`,
       3500
     );
   };
@@ -3144,10 +3163,10 @@ export default function AutoboutiqueApp() {
                 ? 'bg-white border-slate-300 text-slate-900 shadow-slate-300/60'
                 : 'luxe-panel border-slate-700 text-white'
             }`}>
-              <div className="flex items-center gap-2.5 text-amber-500">
-                <ShieldAlert className="w-5 h-5 shrink-0" />
+              <div className="flex items-center gap-2.5 text-red-500">
+                <Trash2 className="w-5 h-5 shrink-0" />
                 <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                  {isTh ? 'ยืนยันการยกเลิกนัดหมาย' : 'Cancel Appointment'}
+                  {isTh ? 'ยืนยันการลบคิวออกจากระบบ' : 'Confirm Delete Booking'}
                 </h3>
               </div>
 
@@ -3218,9 +3237,10 @@ export default function AutoboutiqueApp() {
                 <button
                   type="button"
                   onClick={handleConfirmCancelBooking}
-                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/30 transition"
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/30 transition flex items-center gap-1.5"
                 >
-                  {isTh ? 'ยืนยันยกเลิกคิว' : 'Confirm Cancel'}
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {isTh ? 'ลบข้อมูลคิวนี้ทันที' : 'Delete Now'}
                 </button>
               </div>
             </div>
