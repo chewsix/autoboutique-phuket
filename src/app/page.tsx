@@ -217,7 +217,6 @@ export default function AutoboutiqueApp() {
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formCar, setFormCar] = useState('');
-  const [vipDelivery, setVipDelivery] = useState(false);
   const [activeCarId, setActiveCarId] = useState<string>('BK-001');
 
   // Studio Records & Persisted State
@@ -787,7 +786,6 @@ export default function AutoboutiqueApp() {
       subOptionId: selectedSubOption,
       subOption: isTh ? cleanSubOpt?.labelTh : cleanSubOpt?.labelEn,
       date: selectedDate,
-      vipDelivery,
       status: 'pending',
       createdAt: new Date().toISOString(),
       paidAmount: paymentMethod === 'package' ? 0 : currentPrice,
@@ -1892,37 +1890,20 @@ export default function AutoboutiqueApp() {
                   />
                 </div>
 
-                {/* VIP Pick-up / Delivery Service Toggle */}
+                {/* Studio Location & Arrival Advisory (Replaced fake delivery with authentic studio arrival notice) */}
                 <div className="sm:col-span-2 pt-1">
-                  <label className={`p-3.5 rounded-xl border-2 flex items-center justify-between cursor-pointer transition ${
-                    vipDelivery
-                      ? theme === 'light'
-                        ? 'bg-blue-50 border-blue-600 shadow-sm'
-                        : 'bg-blue-950/70 border-blue-400 shadow-md'
-                      : theme === 'light'
-                      ? 'bg-white border-slate-300 hover:border-slate-400 shadow-sm'
-                      : 'bg-slate-900/90 border-slate-700 hover:border-slate-600'
+                  <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs transition ${
+                    theme === 'light'
+                      ? 'bg-blue-50/70 border-blue-200 text-slate-700'
+                      : 'bg-blue-950/40 border-blue-800/40 text-slate-300'
                   }`}>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={vipDelivery}
-                        onChange={(e) => setVipDelivery(e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-400 bg-white dark:bg-slate-900 text-blue-600 focus:ring-0"
-                      />
-                      <div>
-                        <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                          {isTh ? 'ต้องการบริการ รับ-ส่ง รถยนต์ระดับ VIP (Phuket Concierge Delivery)' : 'Request VIP Vehicle Delivery'}
-                        </p>
-                        <p className={`text-[10px] mt-0.5 font-medium ${theme === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
-                          {isTh ? 'เจ้าหน้าที่จะโทรยืนยันสถานที่รับรถล่วงหน้า 30 นาที' : 'Concierge team will contact for pickup coordination'}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400 shrink-0 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-                      FREE
-                    </span>
-                  </label>
+                    <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
+                    <p className="text-[11px] leading-relaxed">
+                      {isTh
+                        ? '📍 กรุณานำรถยนต์เข้ารับบริการ ณ สตูดิโอ Autoboutique Phuket (ถนนเฉลิมพระเกียรติ ร.9 บายพาส) ตามรอบเวลาที่นัดหมาย'
+                        : '📍 Please bring your vehicle to Autoboutique Studio (Bypass Road, Phuket) at your reserved time slot.'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </section>
@@ -2680,7 +2661,7 @@ export default function AutoboutiqueApp() {
                   <div className={`text-[11px] font-medium flex items-center justify-between ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
                     <span className="truncate">🚗 {formCar || 'รถยนต์ลูกค้า'} ({formName || 'ลูกค้า VIP'})</span>
                     <span className="shrink-0 font-bold text-blue-600 dark:text-blue-400">
-                      {vipDelivery ? '✨ รับ-ส่ง VIP ฟรี' : 'สตูดิโอ'}
+                      {isTh ? '📍 สตูดิโอ บายพาส' : 'Studio Bay'}
                     </span>
                   </div>
                 </div>
@@ -3299,9 +3280,9 @@ export default function AutoboutiqueApp() {
                 </button>
               </div>
 
-              {/* 1-Click Connect & Track on LINE OA */}
+              {/* 1-Click Connect & Track on Official LINE OA (@699qpdba) */}
               <a
-                href={`https://line.me/R/oaMessage/@autoboutique/?${encodeURIComponent(
+                href={`https://line.me/R/oaMessage/@699qpdba/?${encodeURIComponent(
                   `สวัสดีครับ จองคิวล้างรถรหัส #${lastConfirmedBooking.id} (${lastConfirmedBooking.carInfo}) ขอรับการแจ้งเตือนและติดตามสถานะงานครับ`
                 )}`}
                 target="_blank"
@@ -3309,7 +3290,7 @@ export default function AutoboutiqueApp() {
                 className="w-full py-2.5 px-3 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white active-white-text text-xs font-bold transition flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 cursor-pointer"
               >
                 <MessageCircle className="w-4 h-4 text-white" />
-                <span>{isTh ? '💬 เปิดแชท LINE รับการแจ้งเตือนสถานะงาน' : '💬 Track on LINE Chat'}</span>
+                <span>{isTh ? '💬 เปิดแชท LINE (@699qpdba) ติดตามสถานะงานสด' : '💬 Track on LINE OA (@699qpdba)'}</span>
               </a>
             </div>
           </div>
