@@ -53,6 +53,7 @@ import {
   ArrowRight,
   Sun,
   Moon,
+  MessageCircle,
 } from 'lucide-react';
 
 import {
@@ -2240,30 +2241,111 @@ export default function AutoboutiqueApp() {
                     </div>
                   </div>
 
-                  {/* Stage Technical Detail Card */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                    <div className="sm:col-span-1 h-36 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 relative">
-                      <img
-                        src={activeStageInfo.photoUrl}
-                        alt="Stage Detail"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2.5">
-                        <span className="text-[10px] text-slate-300 font-medium">Autoboutique Phuket Bay #1</span>
-                      </div>
+                  {/* 5-Stage Live Detailing Process Cards (Replaced stock photo with intuitive step breakdown) */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between text-xs pb-1">
+                      <span className="text-slate-400 font-medium">
+                        {isTh ? 'ลำดับขั้นตอนการดูแลรถของคุณ' : 'Vehicle Detailing Workflow'}
+                      </span>
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                        activeStageNumber === 5
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                          : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                      }`}>
+                        {activeStageNumber === 5
+                          ? (isTh ? '✨ เสร็จสมบูรณ์ พร้อมส่งมอบ' : '✨ Detailing Complete')
+                          : (isTh ? `⚡ กำลังทำขั้นตอนที่ ${activeStageNumber} จาก 5` : `⚡ Stage ${activeStageNumber} of 5 in progress`)}
+                      </span>
                     </div>
-                    <div className="sm:col-span-2 flex flex-col justify-between space-y-2">
-                      <div>
-                        <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 text-blue-500" />
-                          <span>{isTh ? activeStageInfo.titleTh : activeStageInfo.titleEn}</span>
-                        </h4>
-                        <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                          {isTh ? activeStageInfo.descTh : activeStageInfo.descEn}
-                        </p>
-                      </div>
 
-                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80">
+                    <div className="grid grid-cols-1 gap-2">
+                      {[1, 2, 3, 4, 5].map((stNum) => {
+                        const stInfo = getStageDetails(stNum, isTh);
+                        const isDone = stNum < activeStageNumber;
+                        const isCurrent = stNum === activeStageNumber;
+
+                        return (
+                          <div
+                            key={stNum}
+                            className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all ${
+                              isCurrent
+                                ? theme === 'light'
+                                  ? 'bg-blue-50/90 border-blue-500 shadow-md ring-2 ring-blue-500/20'
+                                  : 'bg-blue-950/50 border-blue-500/70 shadow-lg shadow-blue-500/10 ring-2 ring-blue-500/30'
+                                : isDone
+                                ? theme === 'light'
+                                  ? 'bg-slate-50/80 border-slate-200 text-slate-700'
+                                  : 'bg-slate-900/40 border-slate-800 text-slate-300'
+                                : theme === 'light'
+                                ? 'bg-white/40 border-slate-200/60 text-slate-400 opacity-60'
+                                : 'bg-slate-950/30 border-slate-800/40 text-slate-500 opacity-50'
+                            }`}
+                          >
+                            {/* Step Number or Checkmark Circle */}
+                            <div className="shrink-0 mt-0.5">
+                              {isDone ? (
+                                <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/50 flex items-center justify-center">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                </div>
+                              ) : isCurrent ? (
+                                <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-blue-600/50 animate-pulse">
+                                  {stNum}
+                                </div>
+                              ) : (
+                                <div className={`w-6 h-6 rounded-full border flex items-center justify-center font-mono text-xs font-semibold ${
+                                  theme === 'light' ? 'border-slate-300 text-slate-400 bg-white' : 'border-slate-700 text-slate-500 bg-slate-900'
+                                }`}>
+                                  {stNum}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Step Title & Details */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center justify-between gap-1">
+                                <h4 className={`text-xs sm:text-sm font-bold ${
+                                  isCurrent
+                                    ? theme === 'light' ? 'text-blue-900 font-black' : 'text-blue-300 font-black'
+                                    : isDone
+                                    ? theme === 'light' ? 'text-slate-800' : 'text-slate-200'
+                                    : theme === 'light' ? 'text-slate-400' : 'text-slate-500'
+                                }`}>
+                                  {isTh ? stInfo.titleTh : stInfo.titleEn}
+                                </h4>
+
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                  isCurrent
+                                    ? 'bg-blue-600 text-white shadow-sm'
+                                    : isDone
+                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                    : 'text-slate-400'
+                                }`}>
+                                  {isCurrent
+                                    ? (isTh ? '⚡ กำลังดำเนินการ' : 'In Progress')
+                                    : isDone
+                                    ? (isTh ? '✓ เสร็จแล้ว' : 'Done')
+                                    : (isTh ? 'รอดำเนินการ' : 'Pending')}
+                                </span>
+                              </div>
+
+                              <p className={`text-[11px] mt-1 leading-relaxed ${
+                                isCurrent
+                                  ? theme === 'light' ? 'text-slate-700' : 'text-slate-300'
+                                  : isDone
+                                  ? theme === 'light' ? 'text-slate-500' : 'text-slate-400'
+                                  : theme === 'light' ? 'text-slate-400' : 'text-slate-600'
+                              }`}>
+                                {isTh ? stInfo.descTh : stInfo.descEn}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Actions: View VIP Receipt & Google Calendar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setLastConfirmedBooking(activeCarRecord)}
@@ -2297,6 +2379,11 @@ export default function AutoboutiqueApp() {
                           <CalendarIcon className="w-3.5 h-3.5 text-emerald-500" />
                           <span style={{ color: theme === 'light' ? '#1E293B' : '#E2E8F0' }}>Google Cal</span>
                         </a>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>{isTh ? 'สถานะ: ประจำช่องล้าง Bay #1' : 'Studio Bay #1 Active'}</span>
                       </div>
                     </div>
                   </div>
@@ -3211,6 +3298,19 @@ export default function AutoboutiqueApp() {
                   <span className="text-white active-white-text">{isTh ? 'แชร์ / คัดลอก' : 'Share'}</span>
                 </button>
               </div>
+
+              {/* 1-Click Connect & Track on LINE OA */}
+              <a
+                href={`https://line.me/R/oaMessage/@autoboutique/?${encodeURIComponent(
+                  `สวัสดีครับ จองคิวล้างรถรหัส #${lastConfirmedBooking.id} (${lastConfirmedBooking.carInfo}) ขอรับการแจ้งเตือนและติดตามสถานะงานครับ`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-2.5 px-3 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white active-white-text text-xs font-bold transition flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4 text-white" />
+                <span>{isTh ? '💬 เปิดแชท LINE รับการแจ้งเตือนสถานะงาน' : '💬 Track on LINE Chat'}</span>
+              </a>
             </div>
           </div>
         </div>

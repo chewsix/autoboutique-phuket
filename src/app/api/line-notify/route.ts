@@ -89,12 +89,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid phone number parameter' }, { status: 400 });
     }
 
-    const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    const channelAccessToken =
+      process.env.LINE_CHANNEL_ACCESS_TOKEN ||
+      process.env.LINE_ACCESS_TOKEN ||
+      process.env.CHANNEL_ACCESS_TOKEN ||
+      process.env.LINE_TOKEN;
+
     const targetUserId =
       lineUserId ||
       process.env.LINE_DEFAULT_USER_ID ||
       process.env.LINE_ADMIN_USER_ID ||
-      process.env.LINE_USER_ID;
+      process.env.LINE_USER_ID ||
+      process.env.LINE_TARGET_USER_ID;
+
+    const lineNotifyToken =
+      process.env.LINE_NOTIFY_TOKEN ||
+      process.env.LINE_NOTIFY_ACCESS_TOKEN;
 
     const isBookingConfirmed = type === 'booking_confirmed';
 
@@ -274,27 +284,57 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    let apiStatus = channelAccessToken && targetUserId ? 'live_api_sent' : 'simulated_sandbox';
+    let apiStatus = channelAccessToken && targetUserId ? 'live_api_sent' : lineNotifyToken ? 'line_notify_sent' : 'simulated_sandbox';
     let apiWarning: string | undefined;
 
-    // If real LINE Messaging API credentials are set, execute real push message
+    // 1. If real LINE Messaging API credentials are set, execute real push message
     if (channelAccessToken && targetUserId) {
-      const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${channelAccessToken}`,
-        },
-        body: JSON.stringify({
-          to: targetUserId,
-          messages: [flexMessage],
-        }),
-      });
+      try {
+        const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${channelAccessToken}`,
+          },
+          body: JSON.stringify({
+            to: targetUserId,
+            messages: [flexMessage],
+          }),
+        });
 
-      if (!lineRes.ok) {
-        apiWarning = await lineRes.text();
-        apiStatus = 'live_api_failed';
-        console.warn('LINE API warning (falling back to simulated delivery):', apiWarning);
+        if (!lineRes.ok) {
+          apiWarning = await lineRes.text();
+          apiStatus = 'live_api_failed';
+          console.warn('LINE Messaging API warning (falling back):', apiWarning);
+        } else {
+          apiStatus = 'live_api_sent';
+        }
+      } catch (lineErr: any) {
+        console.warn('LINE Messaging API fetch error:', lineErr);
+      }
+    }
+
+    // 2. If LINE Notify Token is provided, execute direct LINE Notify push
+    if (lineNotifyToken) {
+      try {
+        const notifyMsg = isBookingConfirmed
+          ? `\n✅ ยืนยันการจองคิวสำเร็จ!\nลูกค้า: ${customerName}\nเบอร์: ${phone}\nรถ: ${carInfo}\nบริการ: ${service}\nวันนัดหมาย: ${date} (${timeSlot} น.)\nยอดชำระ: ฿${paidAmount.toLocaleString()}\nรหัสจอง: ${bookingId}`
+          : `\n🚗 อัปเดตสถานะรถสด!\nลูกค้า: ${customerName}\nรถ: ${carInfo}\nขั้นตอนที่ ${stageNumber}/5: ${stageName}\nวันนัดหมาย: ${date} (${timeSlot} น.)\nรหัสจอง: ${bookingId}`;
+
+        const notifyRes = await fetch('https://notify-api.line.me/api/notify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: `Bearer ${lineNotifyToken}`,
+          },
+          body: new URLSearchParams({ message: notifyMsg }),
+        });
+
+        if (notifyRes.ok && apiStatus !== 'live_api_sent') {
+          apiStatus = 'line_notify_sent';
+        }
+      } catch (notifyErr: any) {
+        console.warn('LINE Notify fetch error:', notifyErr);
       }
     }
 
