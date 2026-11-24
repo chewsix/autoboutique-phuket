@@ -109,13 +109,14 @@ export async function POST(req: NextRequest) {
       process.env.LINE_NOTIFY_ACCESS_TOKEN;
 
     const isBookingConfirmed = type === 'booking_confirmed';
+    const carDisplay = carInfo.includes(bookingId) ? carInfo : `${carInfo} (${bookingId})`;
 
-    // Build standard LINE Flex Message Payload (Bubble format)
+    // Build standard LINE Flex Message Payload (Bubble format - No hero photo, clean executive card)
     const flexMessage = {
       type: 'flex',
       altText: isBookingConfirmed
-        ? `✅ ยืนยันการจองคิวล้างรถสำเร็จ: ${carInfo} (${date} เวลา ${timeSlot} น.)`
-        : `🚗 อัปเดตสถานะรถของคุณ: ${carInfo} (${stageName})`,
+        ? `✅ ยืนยันการจองคิวล้างรถสำเร็จ: ${carDisplay} (${date} เวลา ${timeSlot} น.)`
+        : `🚗 อัปเดตสถานะรถของคุณ: ${carDisplay} (${stageName})`,
       contents: {
         type: 'bubble',
         header: {
@@ -143,22 +144,13 @@ export async function POST(req: NextRequest) {
             },
           ],
         },
-        hero: stagePhotoUrl
-          ? {
-              type: 'image',
-              url: stagePhotoUrl,
-              size: 'full',
-              aspectRatio: '16:9',
-              aspectMode: 'cover',
-            }
-          : undefined,
         body: {
           type: 'box',
           layout: 'vertical',
           contents: [
             {
               type: 'text',
-              text: carInfo,
+              text: carDisplay,
               weight: 'bold',
               size: 'md',
               color: '#0F172A',
@@ -245,7 +237,7 @@ export async function POST(req: NextRequest) {
                     },
                     {
                       type: 'text',
-                      text: `รหัสการจอง: ${bookingId} • ${date} (${timeSlot} น.)`,
+                      text: `รหัสจอง: ${bookingId} • ${date} (${timeSlot} น.)`,
                       size: 'xxs',
                       color: '#94A3B8',
                       margin: 'xs',

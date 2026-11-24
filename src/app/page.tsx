@@ -3036,16 +3036,22 @@ export default function AutoboutiqueApp() {
             ADMIN WALK-IN MODAL
             ========================================================================= */}
         {walkInModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/85 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
-            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4 my-auto shadow-2xl">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <h3 className="text-base font-bold text-white">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto overscroll-contain flex items-center justify-center p-4">
+            <div className={`rounded-2xl w-full max-w-md p-5 space-y-4 my-auto shadow-2xl border transition-all ${
+              theme === 'light'
+                ? 'bg-white border-slate-300 text-slate-900 shadow-slate-300/60'
+                : 'luxe-panel border-slate-700 text-white'
+            }`}>
+              <div className={`flex items-center justify-between pb-3 border-b ${
+                theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+              }`}>
+                <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
                   {isTh ? 'บันทึกคิวลูกค้า Walk-in (฿1 - ทดสอบ)' : 'New Walk-in Reception'}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setWalkInModalOpen(false)}
-                  className="p-1 rounded text-slate-400 hover:text-white"
+                  className={`p-1 rounded transition ${theme === 'light' ? 'text-slate-500 hover:text-slate-900' : 'text-slate-400 hover:text-white'}`}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -3053,49 +3059,73 @@ export default function AutoboutiqueApp() {
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="text-slate-300 block mb-1">{isTh ? 'ชื่อลูกค้า' : 'Client Name'}:</label>
+                  <label className={`block mb-1 font-semibold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                    {isTh ? 'ชื่อลูกค้า' : 'Client Name'}:
+                  </label>
                   <input
                     type="text"
                     value={walkInName}
                     onChange={(e) => setWalkInName(e.target.value)}
                     placeholder="ระบุชื่อลูกค้า"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500"
+                    className={`w-full px-3 py-2 rounded-xl border outline-none focus:border-blue-500 transition ${
+                      theme === 'light'
+                        ? 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
+                        : 'bg-slate-950 border-slate-800 text-white placeholder-slate-600'
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="text-slate-300 block mb-1">{isTh ? 'เบอร์โทรศัพท์' : 'Phone'}:</label>
+                  <label className={`block mb-1 font-semibold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                    {isTh ? 'เบอร์โทรศัพท์' : 'Phone'}:
+                  </label>
                   <input
                     type="tel"
                     value={walkInPhone}
                     onChange={(e) => setWalkInPhone(formatPhoneInput(e.target.value))}
                     placeholder="08X-XXX-XXXX"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500 font-mono"
+                    className={`w-full px-3 py-2 rounded-xl border outline-none focus:border-blue-500 font-mono transition ${
+                      theme === 'light'
+                        ? 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
+                        : 'bg-slate-950 border-slate-800 text-white placeholder-slate-600'
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="text-slate-300 block mb-1">{isTh ? 'รุ่นและทะเบียนรถ' : 'Vehicle Plate'}:</label>
+                  <label className={`block mb-1 font-semibold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                    {isTh ? 'รุ่นและทะเบียนรถ' : 'Vehicle Plate'}:
+                  </label>
                   <input
                     type="text"
                     value={walkInCar}
                     onChange={(e) => setWalkInCar(e.target.value)}
                     placeholder="ระบุยี่ห้อ รุ่น และทะเบียน"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white outline-none focus:border-blue-500"
+                    className={`w-full px-3 py-2 rounded-xl border outline-none focus:border-blue-500 transition ${
+                      theme === 'light'
+                        ? 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
+                        : 'bg-slate-950 border-slate-800 text-white placeholder-slate-600'
+                    }`}
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className={`flex justify-end gap-2 pt-3 border-t ${
+                theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+              }`}>
                 <button
                   type="button"
                   onClick={() => setWalkInModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold"
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                    theme === 'light'
+                      ? 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700'
+                      : 'bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300'
+                  }`}
                 >
                   {isTh ? 'ยกเลิก' : 'Cancel'}
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateWalkIn}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition"
                 >
                   {isTh ? 'บันทึกคิว (฿1)' : 'Save Walk-in (฿1)'}
                 </button>
@@ -3108,48 +3138,87 @@ export default function AutoboutiqueApp() {
             CANCEL BOOKING CONFIRMATION MODAL (15-MIN RULE ENFORCED)
             ========================================================================= */}
         {cancelModalBooking && (
-          <div className="fixed inset-0 z-50 bg-black/85 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
-            <div className="luxe-panel rounded-2xl w-full max-w-md p-5 space-y-4 my-auto shadow-2xl">
-              <div className="flex items-center gap-2.5 text-amber-400">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto overscroll-contain flex items-center justify-center p-4">
+            <div className={`rounded-2xl w-full max-w-md p-5 space-y-4 my-auto shadow-2xl border transition-all ${
+              theme === 'light'
+                ? 'bg-white border-slate-300 text-slate-900 shadow-slate-300/60'
+                : 'luxe-panel border-slate-700 text-white'
+            }`}>
+              <div className="flex items-center gap-2.5 text-amber-500">
                 <ShieldAlert className="w-5 h-5 shrink-0" />
-                <h3 className="text-base font-bold text-white">{isTh ? 'ยืนยันการยกเลิกนัดหมาย' : 'Cancel Appointment'}</h3>
+                <h3 className={`text-base font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                  {isTh ? 'ยืนยันการยกเลิกนัดหมาย' : 'Cancel Appointment'}
+                </h3>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
-                <p className="text-slate-200 font-bold">{cancelModalBooking.carInfo}</p>
-                <p className="text-slate-400">รหัส: {cancelModalBooking.id} • {cancelModalBooking.customerName}</p>
-                <p className="text-blue-400 font-semibold">{cancelModalBooking.date} เวลา {cancelModalBooking.timeSlot} น.</p>
+              <div className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
+                theme === 'light'
+                  ? 'bg-slate-50 border-2 border-slate-200 text-slate-800'
+                  : 'bg-slate-950 border border-slate-800 text-slate-200'
+              }`}>
+                <p className={`font-bold text-sm ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>{cancelModalBooking.carInfo}</p>
+                <p className={theme === 'light' ? 'text-slate-700 font-medium' : 'text-slate-400'}>รหัส: {cancelModalBooking.id} • {cancelModalBooking.customerName}</p>
+                <p className={`font-bold ${theme === 'light' ? 'text-blue-700' : 'text-blue-400'}`}>{cancelModalBooking.date} เวลา {cancelModalBooking.timeSlot} น.</p>
               </div>
 
-              {/* 15-Minute Policy Evaluation Output */}
+              {/* 15-Minute Policy Evaluation Output (High-Contrast for both light & dark modes) */}
               {(() => {
                 const policy = checkCancellationPackagePolicy(cancelModalBooking);
                 return (
                   <div
-                    className={`p-3 rounded-xl border text-xs leading-relaxed ${
+                    className={`p-3.5 rounded-xl border-2 text-xs leading-relaxed ${
                       policy.willRefundQuota
-                        ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
-                        : 'bg-red-950/40 border-red-800/60 text-red-300'
+                        ? theme === 'light'
+                          ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-sm'
+                          : 'bg-emerald-950/60 border-emerald-700 text-emerald-200'
+                        : theme === 'light'
+                          ? 'bg-red-50 border-red-300 text-red-950 shadow-sm'
+                          : 'bg-red-950/60 border-red-700 text-red-200'
                     }`}
                   >
-                    <p className="font-semibold">{isTh ? 'ผลการตรวจสอบตามนโยบายสตูดิโอ:' : 'Studio Policy Check:'}</p>
-                    <p className="mt-1">{isTh ? policy.messageTh : policy.messageEn}</p>
+                    <div className="flex items-center gap-1.5">
+                      <ShieldAlert className={`w-4 h-4 shrink-0 ${
+                        policy.willRefundQuota
+                          ? theme === 'light' ? 'text-emerald-700' : 'text-emerald-400'
+                          : theme === 'light' ? 'text-red-700' : 'text-red-400'
+                      }`} />
+                      <p className={`font-bold text-xs ${
+                        policy.willRefundQuota
+                          ? theme === 'light' ? 'text-emerald-950' : 'text-emerald-300'
+                          : theme === 'light' ? 'text-red-950' : 'text-red-300'
+                      }`}>
+                        {isTh ? 'ผลการตรวจสอบตามนโยบายสตูดิโอ:' : 'Studio Policy Check:'}
+                      </p>
+                    </div>
+                    <p className={`mt-1 font-semibold pl-5.5 ${
+                      policy.willRefundQuota
+                        ? theme === 'light' ? 'text-emerald-900' : 'text-emerald-200'
+                        : theme === 'light' ? 'text-red-900' : 'text-red-200'
+                    }`}>
+                      {isTh ? policy.messageTh : policy.messageEn}
+                    </p>
                   </div>
                 );
               })()}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className={`flex justify-end gap-2 pt-3 border-t ${
+                theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+              }`}>
                 <button
                   type="button"
                   onClick={() => setCancelModalBooking(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold"
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                    theme === 'light'
+                      ? 'bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700'
+                      : 'bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300'
+                  }`}
                 >
                   {isTh ? 'ปิดหน้าต่าง' : 'Dismiss'}
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmCancelBooking}
-                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold"
+                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/30 transition"
                 >
                   {isTh ? 'ยืนยันยกเลิกคิว' : 'Confirm Cancel'}
                 </button>
@@ -3162,19 +3231,29 @@ export default function AutoboutiqueApp() {
             SLIP INSPECTION MODAL
             ========================================================================= */}
         {viewSlipModalUrl && (
-          <div className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain flex items-center justify-center p-4">
-            <div className="luxe-panel rounded-2xl w-full max-w-sm p-4 space-y-3 my-auto shadow-2xl">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                <span className="text-xs font-bold text-white">{isTh ? 'ตรวจสอบสลิปโอนเงิน' : 'Payment Slip Inspection'}</span>
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm overflow-y-auto overscroll-contain flex items-center justify-center p-4">
+            <div className={`rounded-2xl w-full max-w-sm p-4 space-y-3 my-auto shadow-2xl border transition-all ${
+              theme === 'light'
+                ? 'bg-white border-slate-300 text-slate-900 shadow-slate-300/60'
+                : 'luxe-panel border-slate-700 text-white'
+            }`}>
+              <div className={`flex items-center justify-between pb-2 border-b ${
+                theme === 'light' ? 'border-slate-200' : 'border-slate-800'
+              }`}>
+                <span className={`text-xs font-bold ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                  {isTh ? 'ตรวจสอบสลิปโอนเงิน' : 'Payment Slip Inspection'}
+                </span>
                 <button
                   type="button"
                   onClick={() => setViewSlipModalUrl(null)}
-                  className="p-1 rounded text-slate-400 hover:text-white"
+                  className={`p-1 rounded transition ${theme === 'light' ? 'text-slate-500 hover:text-slate-900' : 'text-slate-400 hover:text-white'}`}
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="w-full max-h-[70vh] overflow-y-auto rounded-xl bg-black border border-slate-800 flex items-center justify-center">
+              <div className={`w-full max-h-[70vh] overflow-y-auto rounded-xl border flex items-center justify-center ${
+                theme === 'light' ? 'bg-slate-100 border-slate-200' : 'bg-black border-slate-800'
+              }`}>
                 <img src={viewSlipModalUrl} alt="Bank Slip" className="w-full object-contain" />
               </div>
             </div>
