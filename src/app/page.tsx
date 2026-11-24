@@ -779,7 +779,11 @@ export default function AutoboutiqueApp() {
     paymentMethod: 'promptpay' | 'package',
     pkgId?: string
   ) => {
-    const newBookingId = `BK-${String(bookings.length + 1).padStart(3, '0')}`;
+    const nextNum = bookings.reduce((max, b) => {
+      const match = b.id.match(/\d+/);
+      return match ? Math.max(max, parseInt(match[0], 10)) : max;
+    }, 0) + 1;
+    const newBookingId = `BK-${String(nextNum).padStart(3, '0')}`;
     const cleanSubOpt = SERVICE_SUB_OPTIONS.wash.find((s) => s.id === selectedSubOption);
 
     const newRecord: BookingRecord = {
@@ -988,7 +992,11 @@ export default function AutoboutiqueApp() {
       showToast(isTh ? 'กรุณากรอกชื่อและทะเบียนรถ' : 'Please fill all fields', 2500);
       return;
     }
-    const newId = `BK-${String(bookings.length + 1).padStart(3, '0')}`;
+    const nextNum = bookings.reduce((max, b) => {
+      const match = b.id.match(/\d+/);
+      return match ? Math.max(max, parseInt(match[0], 10)) : max;
+    }, 0) + 1;
+    const newId = `BK-${String(nextNum).padStart(3, '0')}`;
     const newRecord: BookingRecord = {
       id: newId,
       timeSlot: '09:30',
@@ -1150,11 +1158,12 @@ export default function AutoboutiqueApp() {
   const adminFilteredBookings = useMemo(() => {
     return bookings.filter((b) => {
       if (b.date !== adminSelectedDate) return false;
+      if (adminBookingFilter === 'all') return b.status !== 'cancelled';
       if (adminBookingFilter === 'pending') return b.status === 'pending';
       if (adminBookingFilter === 'inprogress') return ['step1', 'step2', 'step3', 'step4'].includes(b.status);
       if (adminBookingFilter === 'ready') return b.status === 'ready';
       if (adminBookingFilter === 'cancelled') return b.status === 'cancelled';
-      return true;
+      return b.status !== 'cancelled';
     }).filter((b) => {
       if (!adminSearchTerm.trim()) return true;
       const q = adminSearchTerm.toLowerCase().trim();
@@ -2549,8 +2558,8 @@ export default function AutoboutiqueApp() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {adminFilteredBookings.map((b) => (
-                      <tr key={b.id} className="hover:bg-slate-900/40 transition">
+                    {adminFilteredBookings.map((b, bIdx) => (
+                      <tr key={`${b.id}-${b.createdAt || bIdx}`} className="hover:bg-slate-900/40 transition">
                         <td className="py-3 px-3.5 font-bold text-white whitespace-nowrap">
                           {b.timeSlot} น.
                         </td>
