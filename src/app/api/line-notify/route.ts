@@ -130,7 +130,6 @@ export async function POST(req: NextRequest) {
               weight: 'bold',
               color: '#38BDF8',
               size: 'xs',
-              letterSpacing: '1px',
             },
             {
               type: 'text',
@@ -267,7 +266,7 @@ export async function POST(req: NextRequest) {
               height: 'sm',
               action: {
                 type: 'uri',
-                label: '🔍 ตรวจสอบสถานะรถสด (Live Tracker)',
+                label: '🔍 ตรวจสอบสถานะรถสด',
                 uri: 'https://autoboutique-phuket.vercel.app/',
               },
             },
@@ -277,7 +276,7 @@ export async function POST(req: NextRequest) {
               height: 'sm',
               action: {
                 type: 'uri',
-                label: '📞 ติดต่อสตูดิโอ (066 109 8306)',
+                label: '📞 ติดต่อสตูดิโอ 066 109 8306',
                 uri: 'tel:0661098306',
               },
             },
@@ -306,13 +305,38 @@ export async function POST(req: NextRequest) {
 
         if (!lineRes.ok) {
           apiWarning = await lineRes.text();
-          apiStatus = 'live_api_failed';
-          console.warn('LINE Messaging API warning (falling back):', apiWarning);
+          console.warn('LINE Flex push rejected, triggering plain text fallback:', apiWarning);
+
+          // Guaranteed plain-text fallback so customer ALWAYS gets notified immediately
+          const fallbackText = isBookingConfirmed
+            ? `✅ [Autoboutique Phuket] ยืนยันการจองคิวสำเร็จ!\n🚗 ทะเบียน/รถ: ${carInfo}\n👤 ลูกค้า: ${customerName} (${phone})\n📅 วันนัดหมาย: ${date} เวลา ${timeSlot} น.\n💰 ยอดชำระ: ฿${paidAmount.toLocaleString()}\n🔖 รหัสจอง: #${bookingId}\n🌐 เช็กสถานะสด: https://autoboutique-phuket.vercel.app/`
+            : `🚗 [Autoboutique Phuket] อัปเดตสถานะรถสด!\nทะเบียน/รถ: ${carInfo}\n📍 ขั้นตอนที่ ${stageNumber}/5: ${stageName}\n📅 วันนัดหมาย: ${date} (${timeSlot} น.)\n🔖 รหัสจอง: #${bookingId}\n🌐 เช็กสถานะสด: https://autoboutique-phuket.vercel.app/`;
+
+          const fallbackRes = await fetch('https://api.line.me/v2/bot/message/push', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${channelAccessToken}`,
+            },
+            body: JSON.stringify({
+              to: targetUserId,
+              messages: [{ type: 'text', text: fallbackText }],
+            }),
+          });
+
+          if (fallbackRes.ok) {
+            apiStatus = 'live_api_sent_fallback_text';
+            apiWarning = undefined;
+          } else {
+            apiStatus = 'live_api_failed';
+            apiWarning = await fallbackRes.text();
+          }
         } else {
           apiStatus = 'live_api_sent';
         }
       } catch (lineErr: any) {
         console.warn('LINE Messaging API fetch error:', lineErr);
+        apiStatus = 'live_api_failed';
       }
     }
 
@@ -340,8 +364,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const isDelivered = apiStatus === 'live_api_sent' || apiStatus === 'live_api_sent_fallback_text' || apiStatus === 'line_notify_sent';
+
     return NextResponse.json({
-      success: true,
+      success: isDelivered || apiStatus === 'simulated_sandbox',
+      delivered: isDelivered,
       mode: apiStatus,
       warning: apiWarning,
       targetUserId: targetUserId ? `${targetUserId.slice(0, 4)}...${targetUserId.slice(-4)}` : undefined,

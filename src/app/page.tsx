@@ -570,11 +570,18 @@ export default function AutoboutiqueApp() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.delivered) {
         setLineNotificationSuccess(
           isTh
-            ? `📱 ข้อความ LINE แจ้งเตือนส่งถึง ${payload.customerName} สำเร็จแล้ว!`
-            : `LINE notification sent to ${payload.customerName} successfully.`
+            ? `📱 ข้อความ LINE แจ้งเตือนส่งถึง LINE Official Account (@699qpdba) สำเร็จแล้ว!`
+            : `LINE notification delivered to @699qpdba successfully.`
+        );
+        setTimeout(() => setLineNotificationSuccess(null), 6000);
+      } else if (data.success) {
+        setLineNotificationSuccess(
+          isTh
+            ? `📱 จำลองการส่งแจ้งเตือน LINE เรียบร้อย`
+            : `LINE simulated notification recorded.`
         );
         setTimeout(() => setLineNotificationSuccess(null), 6000);
       }
