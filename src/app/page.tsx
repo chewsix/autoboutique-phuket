@@ -76,6 +76,8 @@ import {
   SERVICE_SHOWCASE_DATA,
   OFFICIAL_PACKAGES,
   INITIAL_CUSTOMER_PACKAGES,
+  findCustomerPackages,
+  validatePackageRedemption,
   checkCancellationPackagePolicy,
   formatPhoneInput,
   isValidThaiPhone,
@@ -238,6 +240,10 @@ export default function AutoboutiqueApp() {
   const [slipChecking, setSlipChecking] = useState(false);
   const [paymentCountdown, setPaymentCountdown] = useState<number>(900); // 15 mins (900s)
   const [selectedPackageIdToRedeem, setSelectedPackageIdToRedeem] = useState<string | null>(null);
+  const [packageRedeemModalOpen, setPackageRedeemModalOpen] = useState<boolean>(false);
+  const [redeemPackageSearchQuery, setRedeemPackageSearchQuery] = useState<string>('');
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [formLineUserId, setFormLineUserId] = useState<string>('');
 
   // Executive Admin State
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
@@ -357,6 +363,7 @@ export default function AutoboutiqueApp() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (promptPayModal.open) setPromptPayModal({ open: false, type: 'booking', title: '', amount: 0 });
+        if (packageRedeemModalOpen) setPackageRedeemModalOpen(false);
         if (adminPinModalOpen) setAdminPinModalOpen(false);
         if (walkInModalOpen) setWalkInModalOpen(false);
         if (cancelModalBooking) setCancelModalBooking(null);
@@ -366,11 +373,11 @@ export default function AutoboutiqueApp() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [promptPayModal.open, adminPinModalOpen, walkInModalOpen, cancelModalBooking, viewSlipModalUrl, lastConfirmedBooking]);
+  }, [promptPayModal.open, packageRedeemModalOpen, adminPinModalOpen, walkInModalOpen, cancelModalBooking, viewSlipModalUrl, lastConfirmedBooking]);
 
   // Prevent background scrolling on mobile & desktop when any modal is active
   const anyModalOpen = Boolean(
-    promptPayModal.open || adminPinModalOpen || walkInModalOpen || cancelModalBooking || viewSlipModalUrl || lastConfirmedBooking
+    promptPayModal.open || packageRedeemModalOpen || adminPinModalOpen || walkInModalOpen || cancelModalBooking || viewSlipModalUrl || lastConfirmedBooking
   );
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -562,6 +569,7 @@ export default function AutoboutiqueApp() {
     stageName?: string;
     stageNumber?: number;
     stagePhotoUrl?: string;
+    lineUserId?: string;
   }) => {
     try {
       const res = await fetch('/api/line-notify', {
@@ -804,6 +812,7 @@ export default function AutoboutiqueApp() {
       paymentStatus: paymentMethod === 'package' ? 'package_redeemed' : 'paid',
       usedPackageId: pkgId || undefined,
       paymentSlipUrl: uploadedSlipPreview || undefined,
+      lineUserId: formLineUserId.trim() || undefined,
     };
 
     // Deduct package quota if applicable
@@ -856,6 +865,7 @@ export default function AutoboutiqueApp() {
       paymentMethod: newRecord.paymentMethod,
       stageName: 'รับรถ & ตรวจสภาพก่อนล้าง',
       stageNumber: 1,
+      lineUserId: newRecord.lineUserId,
     });
 
     // Sync to Cloud Database (Supabase) if configured
@@ -974,16 +984,28 @@ export default function AutoboutiqueApp() {
         stageName: isTh ? stageInfo.titleTh : stageInfo.titleEn,
         stageNumber: stageNum,
         stagePhotoUrl: stageInfo.photoUrl,
+        lineUserId: targetBooking.lineUserId,
       });
 
       // Sync updated stage to Supabase
       updateRemoteBookingStatus(id, newStatus);
-    }
 
-    showToast(
-      isTh ? `🔄 อัปเดตสถานะคิว ${id} และส่งแจ้งเตือน LINE เรียบร้อย` : `Stage updated for ${id}`,
-      3000
-    );
+      if (targetBooking.lineUserId) {
+        showToast(
+          isTh
+            ? `🔄 อัปเดตคิว ${id} และส่งแจ้งเตือนเข้า LINE ลูกค้าเรียบร้อย`
+            : `Stage updated & notified customer LINE`,
+          3500
+        );
+      } else {
+        showToast(
+          isTh
+            ? `🔄 อัปเดตสถานะคิว ${id} เรียบร้อย (ลูกค้ายังไม่ผูก LINE - เช็กผ่านเว็บ)`
+            : `Stage updated (Customer has no LINE ID)`,
+          3500
+        );
+      }
+    }
   };
 
   // Admin Create Walk-in (Flat ฿500 Base Rate)
@@ -1442,6 +1464,52 @@ export default function AutoboutiqueApp() {
                 <span className="hidden sm:inline text-slate-500 ml-1">{isTh ? 'ขั้นตอน' : 'Steps'}</span>
               </div>
             </div>
+
+            {/* Active Package Redemption Banner */}
+            {selectedPackageIdToRedeem && (
+              (() => {
+                const activeRedeemPkg = customerPackages.find((p) => p.id === selectedPackageIdToRedeem);
+                if (!activeRedeemPkg) return null;
+                return (
+                  <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-md transition ${
+                    theme === 'light'
+                      ? 'bg-blue-50/90 border-blue-300 text-slate-800'
+                      : 'bg-gradient-to-r from-blue-950/80 to-slate-900 border-blue-500/50 text-white'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                        <Ticket className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-blue-600 dark:text-blue-400">
+                            {isTh ? 'กำลังใช้สิทธิ์แพ็คเกจ:' : 'Redeeming Pass:'} {isTh ? activeRedeemPkg.packageNameTh : activeRedeemPkg.packageNameEn}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white active-white-text">
+                            ฿0 ฟรี
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {isTh
+                            ? `รหัส ${activeRedeemPkg.id} • สิทธิ์คงเหลือ ${activeRedeemPkg.remainingQuota}/${activeRedeemPkg.totalQuota} ครั้ง (ของ ${activeRedeemPkg.customerName})`
+                            : `Pass #${activeRedeemPkg.id} • ${activeRedeemPkg.remainingQuota}/${activeRedeemPkg.totalQuota} passes left`}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPackageIdToRedeem(null);
+                        showToast(isTh ? 'ยกเลิกการใช้สิทธิ์แพ็คเกจ เปลี่ยนเป็นชำระปกติ' : 'Pass redemption cancelled', 2500);
+                      }}
+                      className="self-end sm:self-center px-3 py-1.5 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs font-semibold transition cursor-pointer"
+                    >
+                      {isTh ? 'ยกเลิกสิทธิ์ (ชำระปกติ)' : 'Cancel Pass'}
+                    </button>
+                  </div>
+                );
+              })()
+            )}
 
             {/* STEP 1: SERVICE HERO & STUDIO ADD-ONS */}
             <section className="luxe-panel rounded-2xl p-4 md:p-6 space-y-5">
@@ -1925,6 +1993,26 @@ export default function AutoboutiqueApp() {
                   />
                 </div>
 
+                {/* Customer LINE Notification ID (Optional) */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className={`font-semibold flex items-center gap-1.5 ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>{isTh ? 'LINE User ID หรือ LINE ID' : 'LINE User ID'}:</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                      {isTh ? '✨ ไม่บังคับ (สำหรับรับแจ้งเตือนสดเข้า LINE ทุกขั้นตอน)' : 'Optional for Live Alerts'}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={isTh ? 'เช่น Uf56b174c... (33 หลัก) หรือแอด LINE @699qpdba เพื่อติดตาม' : 'e.g. U... or LINE ID'}
+                    value={formLineUserId}
+                    onChange={(e) => setFormLineUserId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-emerald-500 transition font-mono font-medium text-xs"
+                  />
+                </div>
+
                 {/* Studio Location & Arrival Advisory (Replaced fake delivery with authentic studio arrival notice) */}
                 <div className="sm:col-span-2 pt-1">
                   <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs transition ${
@@ -1944,58 +2032,95 @@ export default function AutoboutiqueApp() {
             </section>
 
             {/* ACTION BAR: PROCEED TO PAYMENT & VERIFICATION */}
-            <div className={`p-4 sm:p-5 rounded-2xl border-2 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
-              theme === 'light'
-                ? 'bg-gradient-to-r from-blue-50 via-white to-blue-50 border-blue-200 shadow-lg text-slate-900'
-                : 'bg-gradient-to-r from-blue-950/90 via-slate-900 to-blue-950/90 border-blue-500/40 shadow-xl text-white'
-            }`}>
-              <div>
-                <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-                  {isTh ? 'สรุปยอดนัดหมายเข้ารับบริการ' : 'Appointment Total:'}
-                </p>
-                <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className={`text-2xl md:text-3xl font-black ${theme === 'light' ? 'text-slate-950' : 'text-white'}`}>
-                    ฿{currentPrice.toLocaleString()}
-                  </span>
-                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                    {isTh ? '(รวมภาษีและผลิตภัณฑ์สตูดิโอ)' : '(Net Total)'}
-                  </span>
+            {(() => {
+              const activeRedeemPkg = selectedPackageIdToRedeem
+                ? customerPackages.find((p) => p.id === selectedPackageIdToRedeem && p.status === 'active' && p.remainingQuota > 0)
+                : null;
+              const hasAnyActivePackage = customerPackages.some((p) => p.status === 'active' && p.remainingQuota > 0);
+
+              return (
+                <div className={`p-4 sm:p-5 rounded-2xl border-2 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+                  theme === 'light'
+                    ? 'bg-gradient-to-r from-blue-50 via-white to-blue-50 border-blue-200 shadow-lg text-slate-900'
+                    : 'bg-gradient-to-r from-blue-950/90 via-slate-900 to-blue-950/90 border-blue-500/40 shadow-xl text-white'
+                }`}>
+                  <div>
+                    <p className={`text-xs font-bold ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                      {isTh ? 'สรุปยอดนัดหมายเข้ารับบริการ' : 'Appointment Total:'}
+                    </p>
+                    <div className="flex items-baseline gap-2 mt-0.5">
+                      <span className={`text-2xl md:text-3xl font-black ${
+                        activeRedeemPkg
+                          ? 'text-emerald-500 dark:text-emerald-400 font-mono'
+                          : theme === 'light' ? 'text-slate-950' : 'text-white'
+                      }`}>
+                        {activeRedeemPkg ? '฿0' : `฿${currentPrice.toLocaleString()}`}
+                      </span>
+                      <span className={`text-xs font-bold ${
+                        activeRedeemPkg
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-blue-600 dark:text-blue-400'
+                      }`}>
+                        {activeRedeemPkg
+                          ? (isTh ? '(ใช้สิทธิ์แพ็คเกจ ฿0 - สิทธิ์ฟรี)' : '(Pass Redeemed ฿0)')
+                          : (isTh ? '(รวมภาษีและผลิตภัณฑ์สตูดิโอ)' : '(Net Total)')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+                    {/* If Active Package is Selected, Primary CTA is Confirm Pass */}
+                    {activeRedeemPkg ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRedeemError(null);
+                          setPackageRedeemModalOpen(true);
+                        }}
+                        className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.99] text-white active-white-text text-xs md:text-sm font-bold shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Ticket className="w-4 h-4 text-white shrink-0" />
+                        <span className="text-white active-white-text">
+                          {isTh ? 'ยืนยันใช้สิทธิ์แพ็คเกจ (฿0)' : 'Redeem Pass (฿0)'}
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-white shrink-0" />
+                      </button>
+                    ) : (
+                      <>
+                        {/* If Client has Package Pass, Show Redeem Option */}
+                        {hasAnyActivePackage && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRedeemError(null);
+                              setPackageRedeemModalOpen(true);
+                            }}
+                            className={`flex-1 sm:flex-none px-4 py-3 rounded-xl border-2 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                              theme === 'light'
+                                ? 'bg-white border-blue-600 text-blue-900 hover:bg-blue-50 shadow-sm'
+                                : 'bg-slate-900 border-blue-500/40 text-blue-300 hover:text-white hover:bg-slate-800'
+                            }`}
+                          >
+                            <Ticket className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span>{isTh ? 'ใช้สิทธิ์แพ็คเกจ (฿0)' : 'Redeem Pass'}</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={handleInitiateBookingPayment}
+                          className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 active:scale-[0.99] text-white active-white-text text-xs md:text-sm font-bold shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <QrCode className="w-4 h-4 text-white shrink-0" />
+                          <span className="text-white active-white-text">{isTh ? 'สแกน QR Code & แนบสลิปจองคิว' : 'Scan PromptPay & Confirm'}</span>
+                          <ChevronRight className="w-4 h-4 text-white shrink-0" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
-                {/* If Client has Package Pass, Show Redeem Option */}
-                {customerPackages.some((p) => p.status === 'active' && p.remainingQuota > 0) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const availPkg = customerPackages.find((p) => p.status === 'active' && p.remainingQuota > 0);
-                      if (availPkg) {
-                        handleCompleteBookingPayment('package', availPkg.id);
-                      }
-                    }}
-                    className={`flex-1 sm:flex-none px-4 py-3 rounded-xl border-2 text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                      theme === 'light'
-                        ? 'bg-white border-blue-600 text-blue-900 hover:bg-blue-50 shadow-sm'
-                        : 'bg-slate-900 border-blue-500/40 text-blue-300 hover:text-white hover:bg-slate-800'
-                    }`}
-                  >
-                    <Ticket className="w-4 h-4 text-blue-500 shrink-0" />
-                    <span>{isTh ? 'ใช้สิทธิ์แพ็คเกจ (฿0)' : 'Redeem Pass'}</span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleInitiateBookingPayment}
-                  className="flex-1 sm:flex-none px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 active:scale-[0.99] text-white active-white-text text-xs md:text-sm font-bold shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <QrCode className="w-4 h-4 text-white shrink-0" />
-                  <span className="text-white active-white-text">{isTh ? 'สแกน QR Code & แนบสลิปจองคิว' : 'Scan PromptPay & Confirm'}</span>
-                  <ChevronRight className="w-4 h-4 text-white shrink-0" />
-                </button>
-              </div>
-            </div>
+              );
+            })()}
           </main>
         )}
 
@@ -2152,10 +2277,20 @@ export default function AutoboutiqueApp() {
                         <button
                           type="button"
                           onClick={() => {
+                            setSelectedPackageIdToRedeem(cp.id);
+                            if (cp.customerName) setFormName(cp.customerName);
+                            if (cp.phone) setFormPhone(cp.phone);
+                            if (cp.carInfo) setFormCar(cp.carInfo);
+                            if (cp.lineUserId) setFormLineUserId(cp.lineUserId);
                             setView('booking');
-                            showToast(isTh ? 'เลือกวันและเวลานัดหมายเพื่อใช้สิทธิ์แพ็คเกจ' : 'Select schedule to redeem pass', 3500);
+                            showToast(
+                              isTh
+                                ? `🎟️ เลือกวันและเวลานัดหมายเพื่อใช้สิทธิ์: ${cp.packageNameTh} (คงเหลือ ${cp.remainingQuota} ครั้ง)`
+                                : `Selected pass: ${cp.packageNameEn} (${cp.remainingQuota} left)`,
+                              4000
+                            );
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition"
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition cursor-pointer"
                         >
                           {isTh ? 'ใช้สิทธิ์จองคิวทันที' : 'Use Pass'}
                         </button>
@@ -2568,15 +2703,25 @@ export default function AutoboutiqueApp() {
                           <p className="text-[10px] text-blue-400 font-mono">{b.id}</p>
                         </td>
                         <td className="py-3 px-3.5 whitespace-nowrap">
-                          <p className="text-slate-200">{b.customerName}</p>
+                          <p className="text-slate-200 font-medium">{b.customerName}</p>
                           <p className="text-[10px] text-slate-400 font-mono">{b.phone}</p>
+                          {b.lineUserId ? (
+                            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400 font-semibold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/80 mt-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              LINE เชื่อมต่อแล้ว
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[9px] text-slate-400 bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-700/60 mt-0.5">
+                              LINE ยังไม่ผูก
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-3.5 whitespace-nowrap">
                           <span className="font-bold text-emerald-400">
-                            ฿{(b.paidAmount || 0).toLocaleString()}
+                            {b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${(b.paidAmount || 0).toLocaleString()}`}
                           </span>
-                          <span className="text-[10px] text-slate-500 block">
-                            {b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ' : 'PromptPay'}
+                          <span className="text-[10px] text-slate-400 block font-mono">
+                            {b.paymentMethod === 'package' ? (b.usedPackageId ? `Pass #${b.usedPackageId}` : 'สิทธิ์ฟรี') : (b.paymentMethod || 'PromptPay')}
                           </span>
                         </td>
                         <td className="py-3 px-3.5 whitespace-nowrap">
@@ -2631,6 +2776,281 @@ export default function AutoboutiqueApp() {
               </div>
             </div>
           </main>
+        )}
+
+        {/* =========================================================================
+            PACKAGE REDEMPTION MODAL (ใช้สิทธิ์แพ็คเกจ ฿0)
+            ========================================================================= */}
+        {packageRedeemModalOpen && (
+          (() => {
+            const availableActivePackages = customerPackages.filter((p) => p.status === 'active' && p.remainingQuota > 0);
+            const filteredRedeemPackages = findCustomerPackages(customerPackages, redeemPackageSearchQuery);
+            const selectedRedeemPkg = customerPackages.find((p) => p.id === selectedPackageIdToRedeem) || filteredRedeemPackages[0] || availableActivePackages[0];
+            const cleanSubOpt = SERVICE_SUB_OPTIONS.wash.find((s) => s.id === selectedSubOption);
+
+            return (
+              <div
+                className={`fixed inset-0 z-50 overflow-y-auto overscroll-contain ${
+                  theme === 'light' ? 'bg-slate-950/80' : 'bg-black/90'
+                }`}
+              >
+                <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
+                  <div
+                    className={`w-full max-w-lg rounded-2xl p-4 sm:p-6 space-y-4 shadow-2xl border transition-all text-left ${
+                      theme === 'light' ? 'bg-white border-slate-300 text-slate-900' : 'luxe-panel border-slate-700 text-white'
+                    }`}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                          <Ticket className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                            {isTh ? 'ยืนยันการใช้สิทธิ์แพ็คเกจ (฿0)' : 'Redeem Studio Pass (฿0)'}
+                          </h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {isTh ? 'หัก 1 สิทธิ์จากแพ็คเกจ โดยไม่มีค่าใช้จ่ายเพิ่ม' : '1 Session deducted from active pass, ฿0 Total'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPackageRedeemModalOpen(false);
+                          setRedeemError(null);
+                        }}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Validation Error Message */}
+                    {redeemError && (
+                      <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                        <span>{redeemError}</span>
+                      </div>
+                    )}
+
+                    {/* Section 1: Customer Details Verification */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Car className="w-3.5 h-3.5 text-blue-500" />
+                        <span>{isTh ? '1. ข้อมูลผู้ใช้สิทธิ์และยานยนต์' : '1. Customer & Vehicle Info'}</span>
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {isTh ? 'ชื่อ-นามสกุล' : 'Full Name'} *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={isTh ? 'ระบุชื่อลูกค้า' : 'Customer Name'}
+                            value={formName}
+                            onChange={(e) => setFormName(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-blue-500 transition font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {isTh ? 'เบอร์โทรศัพท์' : 'Phone'} *
+                          </label>
+                          <input
+                            type="tel"
+                            placeholder="08X-XXX-XXXX"
+                            value={formPhone}
+                            onChange={(e) => setFormPhone(formatPhoneInput(e.target.value))}
+                            className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-blue-500 transition font-mono font-medium"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            {isTh ? 'ยี่ห้อ รุ่น และทะเบียนรถ' : 'Vehicle & License Plate'} *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={isTh ? 'เช่น BMW M2 (กข 8888 ภูเก็ต)' : 'e.g. BMW M2'}
+                            value={formCar}
+                            onChange={(e) => setFormCar(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-blue-500 transition font-medium"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                              <MessageCircle className="w-3 h-3 text-emerald-500" />
+                              {isTh ? 'LINE User ID (ไม่บังคับ - สำหรับรับแจ้งเตือนสด)' : 'LINE User ID (Optional)'}
+                            </span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">
+                              {isTh ? 'รับแจ้งเตือนทุกขั้นตอน' : 'Live updates'}
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="U... (33 หลัก) หรือแอด LINE @699qpdba"
+                            value={formLineUserId}
+                            onChange={(e) => setFormLineUserId(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-emerald-500 transition font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section 2: Package Selection */}
+                    <div className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Ticket className="w-3.5 h-3.5 text-blue-500" />
+                          <span>{isTh ? '2. เลือกแพ็คเกจที่ต้องการใช้สิทธิ์' : '2. Select Pass to Redeem'}</span>
+                        </h4>
+                        <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
+                          {availableActivePackages.length} {isTh ? 'แพ็คเกจพร้อมใช้' : 'available'}
+                        </span>
+                      </div>
+
+                      {/* Search box if customer wants to filter by phone/code */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          placeholder={isTh ? 'ค้นหาด้วยเบอร์โทร หรือ รหัสแพ็คเกจ เช่น CPKG-001...' : 'Search by phone or pass ID...'}
+                          value={redeemPackageSearchQuery}
+                          onChange={(e) => setRedeemPackageSearchQuery(e.target.value)}
+                          className="w-full pl-8 pr-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white text-xs outline-none focus:border-blue-500 transition"
+                        />
+                      </div>
+
+                      {/* Package Cards List */}
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {filteredRedeemPackages.map((pkg) => {
+                          const isSelected = selectedRedeemPkg?.id === pkg.id;
+                          return (
+                            <div
+                              key={pkg.id}
+                              onClick={() => {
+                                setSelectedPackageIdToRedeem(pkg.id);
+                                if (!formName && pkg.customerName) setFormName(pkg.customerName);
+                                if (!formPhone && pkg.phone) setFormPhone(pkg.phone);
+                                if (!formCar && pkg.carInfo) setFormCar(pkg.carInfo);
+                                if (pkg.lineUserId && !formLineUserId) setFormLineUserId(pkg.lineUserId);
+                                setRedeemError(null);
+                              }}
+                              className={`p-3 rounded-xl border-2 transition cursor-pointer flex items-center justify-between gap-3 ${
+                                isSelected
+                                  ? 'border-blue-600 bg-blue-50/90 dark:bg-blue-950/70 shadow-sm'
+                                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900/60'
+                              }`}
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/80 text-blue-700 dark:text-blue-300">
+                                    {pkg.id}
+                                  </span>
+                                  <h5 className="text-xs font-bold text-slate-900 dark:text-white">
+                                    {isTh ? pkg.packageNameTh : pkg.packageNameEn}
+                                  </h5>
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                  {pkg.customerName} • {pkg.phone}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400 block">
+                                  {pkg.remainingQuota} / {pkg.totalQuota} {isTh ? 'ครั้ง' : 'passes'}
+                                </span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  {isTh ? 'พร้อมใช้สิทธิ์' : 'Active'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Selected Quota Deduction Preview */}
+                      {selectedRedeemPkg && (
+                        <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 space-y-2 text-xs">
+                          <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                            <span>{isTh ? 'สิทธิ์คงเหลือก่อนใช้:' : 'Current balance:'}</span>
+                            <span className="font-bold">{selectedRedeemPkg.remainingQuota} ครั้ง</span>
+                          </div>
+                          <div className="flex justify-between items-center text-rose-600 dark:text-rose-400">
+                            <span>{isTh ? 'หักสิทธิ์สำหรับการจองนี้:' : 'Deduction:'}</span>
+                            <span className="font-bold">-1 ครั้ง</span>
+                          </div>
+                          <div className="flex justify-between items-center text-blue-600 dark:text-blue-400 font-semibold border-t border-blue-200/80 dark:border-blue-800/60 pt-1.5">
+                            <span>{isTh ? 'สิทธิ์คงเหลือหลังยืนยัน:' : 'Remaining after redemption:'}</span>
+                            <span className="font-bold">{selectedRedeemPkg.remainingQuota - 1} ครั้ง</span>
+                          </div>
+                          <div className="flex justify-between items-center text-slate-900 dark:text-white font-bold pt-1 border-t border-blue-200/80 dark:border-blue-800/60">
+                            <span>{isTh ? 'ยอดชำระสุทธิ:' : 'Total due:'}</span>
+                            <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                              ฿0.00 บาท (ฟรี)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Appointment Recap */}
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+                      <div className="flex justify-between">
+                        <span>{isTh ? 'วันและเวลานัดหมาย:' : 'Appointment:'}</span>
+                        <span className="font-bold text-blue-600 dark:text-blue-400">{selectedDate} ({bookingTimeSlot} น.)</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>{isTh ? 'บริการ:' : 'Service:'}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">
+                          {isTh ? cleanSubOpt?.labelTh : cleanSubOpt?.labelEn}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2.5 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPackageRedeemModalOpen(false);
+                          setRedeemError(null);
+                        }}
+                        className="flex-1 py-3 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                      >
+                        {isTh ? 'ยกเลิก' : 'Cancel'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const validation = validatePackageRedemption({
+                            customerName: formName,
+                            phone: formPhone,
+                            carInfo: formCar,
+                            selectedPackage: selectedRedeemPkg,
+                          });
+                          if (!validation.isValid) {
+                            setRedeemError(isTh ? validation.errorTh || 'ข้อมูลไม่ครบถ้วน' : validation.errorEn || 'Invalid input');
+                            return;
+                          }
+                          if (selectedRedeemPkg) {
+                            handleCompleteBookingPayment('package', selectedRedeemPkg.id);
+                            setPackageRedeemModalOpen(false);
+                            setRedeemError(null);
+                          }
+                        }}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:scale-[0.99] text-white active-white-text text-xs font-bold shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Ticket className="w-4 h-4 text-white" />
+                        <span className="text-white active-white-text">{isTh ? 'ยืนยันใช้สิทธิ์ (฿0)' : 'Confirm Pass (฿0)'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
         )}
 
         {/* =========================================================================
@@ -3356,12 +3776,22 @@ export default function AutoboutiqueApp() {
                     <span className="text-slate-500 dark:text-slate-400">{isTh ? 'บริการ' : 'Service'}:</span>
                     <span className="text-right max-w-[200px] font-bold text-slate-900 dark:text-white">{lastConfirmedBooking.service}</span>
                   </div>
+                  {lastConfirmedBooking.paymentMethod === 'package' && (
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-500 dark:text-slate-400">{isTh ? 'สิทธิ์แพ็คเกจที่ใช้' : 'Pass Used'}:</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                        {lastConfirmedBooking.usedPackageId ? `Pass #${lastConfirmedBooking.usedPackageId}` : 'สิทธิ์ฟรี (฿0)'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2 border-t border-slate-200 dark:border-slate-900 flex justify-between items-baseline text-sm">
                   <span className="font-bold text-slate-700 dark:text-slate-300">{isTh ? 'ยอดชำระสุทธิ' : 'Total Paid'}:</span>
-                  <span className="text-lg font-black text-blue-600 dark:text-blue-400 font-mono">
-                    ฿{(lastConfirmedBooking.paidAmount || 0).toLocaleString()}
+                  <span className={`text-lg font-black font-mono ${
+                    lastConfirmedBooking.paymentMethod === 'package' ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'
+                  }`}>
+                    {lastConfirmedBooking.paymentMethod === 'package' ? '฿0 (สิทธิ์แพ็คเกจ)' : `฿${(lastConfirmedBooking.paidAmount || 0).toLocaleString()}`}
                   </span>
                 </div>
               </div>

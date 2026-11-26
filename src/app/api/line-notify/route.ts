@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin');
   const host = req.headers.get('host');
 
-  const isSameOrigin = secFetchSite === 'same-origin' || (Boolean(origin && host && origin.includes(host)));
+  const isSameOrigin = secFetchSite === 'same-origin' || Boolean(origin && host && origin.includes(host));
   const hasValidSecret = Boolean(INTERNAL_API_SECRET && authHeader === INTERNAL_API_SECRET);
 
   if (INTERNAL_API_SECRET && !hasValidSecret && !isSameOrigin) {
@@ -74,7 +74,6 @@ export async function POST(req: NextRequest) {
       paymentMethod = 'promptpay',
       stageName = 'รับรถ & ตรวจสภาพก่อนล้าง',
       stageNumber = 1,
-      stagePhotoUrl,
       lineUserId,
     } = body;
 
@@ -96,13 +95,18 @@ export async function POST(req: NextRequest) {
       process.env.LINE_TOKEN ||
       'kLzwpa7qG7rOrBrcJ2oTRGkazCPrMJVD6NwkT7ikSb58fZ1TJt6O0xnQ9n4QOLPP7raHEMm9+NEcUoD8if14XQwsxkFj82cqyLASaBROTF2MQACsMLciWBLwTImvNy+VMqT/zbJjGhIwl+nYgFX1xwdB04t89/1O/w1cDnyilFU=';
 
-    const targetUserId =
-      lineUserId ||
-      process.env.LINE_DEFAULT_USER_ID ||
+    const adminUserId =
       process.env.LINE_ADMIN_USER_ID ||
+      process.env.LINE_DEFAULT_USER_ID ||
       process.env.LINE_USER_ID ||
       process.env.LINE_TARGET_USER_ID ||
       'Uf56b174c54c8be354754f7dddc9d08dc';
+
+    // Real customer LINE user ID (must start with 'U' and be at least 20 chars)
+    const customerUserId =
+      lineUserId && typeof lineUserId === 'string' && lineUserId.trim().startsWith('U') && lineUserId.trim().length >= 20
+        ? lineUserId.trim()
+        : undefined;
 
     const lineNotifyToken =
       process.env.LINE_NOTIFY_TOKEN ||
@@ -111,8 +115,46 @@ export async function POST(req: NextRequest) {
     const isBookingConfirmed = type === 'booking_confirmed';
     const carDisplay = carInfo.includes(bookingId) ? carInfo : `${carInfo} (${bookingId})`;
 
-    // Build standard LINE Flex Message Payload (Bubble format - No hero photo, clean executive card)
-    const flexMessage = {
+    // Helper: Push message to LINE
+    const sendPush = async (to: string, flexMsg: any, fallbackText: string) => {
+      try {
+        const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${channelAccessToken}`,
+          },
+          body: JSON.stringify({
+            to,
+            messages: [flexMsg],
+          }),
+        });
+
+        if (!lineRes.ok) {
+          const errText = await lineRes.text();
+          console.warn(`LINE push to ${to.slice(0, 5)}... rejected, using text fallback:`, errText);
+          const fallbackRes = await fetch('https://api.line.me/v2/bot/message/push', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${channelAccessToken}`,
+            },
+            body: JSON.stringify({
+              to,
+              messages: [{ type: 'text', text: fallbackText }],
+            }),
+          });
+          return fallbackRes.ok;
+        }
+        return true;
+      } catch (err) {
+        console.warn('LINE push exception:', err);
+        return false;
+      }
+    };
+
+    // Build Customer Flex Message Payload (Bubble format - Clean executive card)
+    const customerFlexMessage = {
       type: 'flex',
       altText: isBookingConfirmed
         ? `✅ ยืนยันการจองคิวล้างรถสำเร็จ: ${carDisplay} (${date} เวลา ${timeSlot} น.)`
@@ -277,69 +319,182 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    let apiStatus = channelAccessToken && targetUserId ? 'live_api_sent' : lineNotifyToken ? 'line_notify_sent' : 'simulated_sandbox';
-    let apiWarning: string | undefined;
-
-    // 1. If real LINE Messaging API credentials are set, execute real push message
-    if (channelAccessToken && targetUserId) {
-      try {
-        const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${channelAccessToken}`,
-          },
-          body: JSON.stringify({
-            to: targetUserId,
-            messages: [flexMessage],
-          }),
-        });
-
-        if (!lineRes.ok) {
-          apiWarning = await lineRes.text();
-          console.warn('LINE Flex push rejected, triggering plain text fallback:', apiWarning);
-
-          // Guaranteed plain-text fallback so customer ALWAYS gets notified immediately
-          const fallbackText = isBookingConfirmed
-            ? `✅ [Autoboutique Phuket] ยืนยันการจองคิวสำเร็จ!\n🚗 ทะเบียน/รถ: ${carInfo}\n👤 ลูกค้า: ${customerName} (${phone})\n📅 วันนัดหมาย: ${date} เวลา ${timeSlot} น.\n💰 ยอดชำระ: ฿${paidAmount.toLocaleString()}\n🔖 รหัสจอง: #${bookingId}\n🌐 เช็กสถานะสด: https://autoboutique-phuket.vercel.app/`
-            : `🚗 [Autoboutique Phuket] อัปเดตสถานะรถสด!\nทะเบียน/รถ: ${carInfo}\n📍 ขั้นตอนที่ ${stageNumber}/5: ${stageName}\n📅 วันนัดหมาย: ${date} (${timeSlot} น.)\n🔖 รหัสจอง: #${bookingId}\n🌐 เช็กสถานะสด: https://autoboutique-phuket.vercel.app/`;
-
-          const fallbackRes = await fetch('https://api.line.me/v2/bot/message/push', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${channelAccessToken}`,
+    // Build Studio Admin Dispatch Flex Message (Clear distinction for studio owner)
+    const adminFlexMessage = {
+      type: 'flex',
+      altText: `🔔 [ผู้ดูแลสตูดิโอ] มีคิวจองใหม่: #${bookingId} (${carDisplay})`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#0F172A',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'text',
+              text: 'AUTOBOUTIQUE • STUDIO ADMIN ALERT',
+              weight: 'bold',
+              color: '#F59E0B',
+              size: 'xs',
             },
-            body: JSON.stringify({
-              to: targetUserId,
-              messages: [{ type: 'text', text: fallbackText }],
-            }),
-          });
+            {
+              type: 'text',
+              text: '🔔 มีคิวจองใหม่เข้ามา!',
+              weight: 'bold',
+              color: '#FFFFFF',
+              size: 'md',
+              margin: 'sm',
+            },
+          ],
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: carDisplay,
+              weight: 'bold',
+              size: 'md',
+              color: '#0F172A',
+            },
+            {
+              type: 'text',
+              text: `บริการ: ${service}`,
+              size: 'xs',
+              color: '#1D4ED8',
+              weight: 'bold',
+              margin: 'xs',
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              backgroundColor: '#F8FAFC',
+              cornerRadius: '8px',
+              paddingAll: '12px',
+              borderColor: '#E2E8F0',
+              borderWidth: '1px',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: 'รหัสการจอง:', size: 'xs', color: '#64748B', flex: 4 },
+                    { type: 'text', text: bookingId, size: 'xs', color: '#0F172A', weight: 'bold', align: 'end', flex: 5 },
+                  ],
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'sm',
+                  contents: [
+                    { type: 'text', text: 'วันนัดหมาย:', size: 'xs', color: '#64748B', flex: 4 },
+                    { type: 'text', text: `${date} (${timeSlot} น.)`, size: 'xs', color: '#0284C7', weight: 'bold', align: 'end', flex: 5 },
+                  ],
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'sm',
+                  contents: [
+                    { type: 'text', text: 'ลูกค้า:', size: 'xs', color: '#64748B', flex: 4 },
+                    { type: 'text', text: `${customerName} (${phone})`, size: 'xs', color: '#0F172A', align: 'end', flex: 5 },
+                  ],
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'sm',
+                  contents: [
+                    { type: 'text', text: 'ยอดชำระ:', size: 'xs', color: '#64748B', flex: 4 },
+                    {
+                      type: 'text',
+                      text: paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `ชำระแล้ว ฿${paidAmount.toLocaleString()}`,
+                      size: 'xs',
+                      color: '#059669',
+                      weight: 'bold',
+                      align: 'end',
+                      flex: 5,
+                    },
+                  ],
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'sm',
+                  contents: [
+                    { type: 'text', text: 'สถานะ LINE ลูกค้า:', size: 'xs', color: '#64748B', flex: 4 },
+                    {
+                      type: 'text',
+                      text: customerUserId ? '🟢 ส่งเข้า LINE ลูกค้าแล้ว' : '⚪ ยังไม่ผูก LINE (แจ้งเฉพาะร้าน)',
+                      size: 'xs',
+                      color: customerUserId ? '#059669' : '#D97706',
+                      weight: 'bold',
+                      align: 'end',
+                      flex: 5,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#0F172A',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '📋 เปิดระบบบริหารสตูดิโอ',
+                uri: 'https://autoboutique-phuket.vercel.app/',
+              },
+            },
+          ],
+        },
+      },
+    };
 
-          if (fallbackRes.ok) {
-            apiStatus = 'live_api_sent_fallback_text';
-            apiWarning = undefined;
-          } else {
-            apiStatus = 'live_api_failed';
-            apiWarning = await fallbackRes.text();
-          }
-        } else {
-          apiStatus = 'live_api_sent';
+    let customerSent = false;
+    let adminSent = false;
+
+    // Delivery Flow
+    if (channelAccessToken) {
+      if (isBookingConfirmed) {
+        // 1. If customer provided LINE User ID, push directly to customer!
+        if (customerUserId) {
+          const custText = `✅ [Autoboutique Phuket] ยืนยันการจองคิวสำเร็จ!\n🚗 รถยนต์: ${carInfo}\n👤 ลูกค้า: ${customerName}\n📅 นัดหมาย: ${date} (${timeSlot} น.)\n💰 ยอดชำระ: ${paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${paidAmount.toLocaleString()}`}\n🔖 รหัสจอง: #${bookingId}`;
+          customerSent = await sendPush(customerUserId, customerFlexMessage, custText);
         }
-      } catch (lineErr: any) {
-        console.warn('LINE Messaging API fetch error:', lineErr);
-        apiStatus = 'live_api_failed';
+
+        // 2. Always notify studio admin of incoming bookings
+        if (adminUserId) {
+          const adminText = `🔔 [แจ้งเตือนสตูดิโอ] มีคิวจองใหม่ #${bookingId}\n🚗 รถยนต์: ${carInfo}\n👤 ลูกค้า: ${customerName} (${phone})\n📅 นัดหมาย: ${date} (${timeSlot} น.)\n💰 ชำระ: ${paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${paidAmount.toLocaleString()}`}\n📱 LINE ลูกค้า: ${customerUserId ? 'ส่งแจ้งเตือนลูกค้าแล้ว' : 'ยังไม่ผูก LINE'}`;
+          adminSent = await sendPush(adminUserId, adminFlexMessage, adminText);
+        }
+      } else {
+        // Stage update:
+        // ONLY send to customer if customer has a LINE User ID!
+        // DO NOT spam admin pretending to be the customer!
+        if (customerUserId) {
+          const stageText = `🚗 [Autoboutique Phuket] อัปเดตสถานะรถสด!\nทะเบียน/รถ: ${carInfo}\n📍 ขั้นตอนที่ ${stageNumber}/5: ${stageName}\n📅 วันนัดหมาย: ${date} (${timeSlot} น.)\n🔖 รหัสจอง: #${bookingId}`;
+          customerSent = await sendPush(customerUserId, customerFlexMessage, stageText);
+        }
       }
     }
 
-    // 2. If LINE Notify Token is provided, execute direct LINE Notify push
-    if (lineNotifyToken) {
+    // LINE Notify fallback if configured
+    if (lineNotifyToken && isBookingConfirmed) {
       try {
-        const notifyMsg = isBookingConfirmed
-          ? `\n✅ ยืนยันการจองคิวสำเร็จ!\nลูกค้า: ${customerName}\nเบอร์: ${phone}\nรถ: ${carInfo}\nบริการ: ${service}\nวันนัดหมาย: ${date} (${timeSlot} น.)\nยอดชำระ: ฿${paidAmount.toLocaleString()}\nรหัสจอง: ${bookingId}`
-          : `\n🚗 อัปเดตสถานะรถสด!\nลูกค้า: ${customerName}\nรถ: ${carInfo}\nขั้นตอนที่ ${stageNumber}/5: ${stageName}\nวันนัดหมาย: ${date} (${timeSlot} น.)\nรหัสจอง: ${bookingId}`;
-
-        const notifyRes = await fetch('https://notify-api.line.me/api/notify', {
+        const notifyMsg = `\n✅ ยืนยันการจองคิวสำเร็จ!\nลูกค้า: ${customerName} (${phone})\nรถ: ${carInfo}\nบริการ: ${service}\nวันนัดหมาย: ${date} (${timeSlot} น.)\nยอดชำระ: ${paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${paidAmount.toLocaleString()}`}\nรหัสจอง: ${bookingId}`;
+        await fetch('https://notify-api.line.me/api/notify', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -347,25 +502,22 @@ export async function POST(req: NextRequest) {
           },
           body: new URLSearchParams({ message: notifyMsg }),
         });
-
-        if (notifyRes.ok && apiStatus !== 'live_api_sent') {
-          apiStatus = 'line_notify_sent';
-        }
-      } catch (notifyErr: any) {
-        console.warn('LINE Notify fetch error:', notifyErr);
+      } catch (notifyErr) {
+        console.warn('LINE Notify error:', notifyErr);
       }
     }
 
-    const isDelivered = apiStatus === 'live_api_sent' || apiStatus === 'live_api_sent_fallback_text' || apiStatus === 'line_notify_sent';
-
     return NextResponse.json({
-      success: isDelivered || apiStatus === 'simulated_sandbox',
-      delivered: isDelivered,
-      mode: apiStatus,
-      warning: apiWarning,
-      targetUserId: targetUserId ? `${targetUserId.slice(0, 4)}...${targetUserId.slice(-4)}` : undefined,
-      message: `ส่งข้อความ LINE สำเร็จแล้ว: ${isBookingConfirmed ? 'ยืนยันการจอง' : stageName} (${customerName})`,
-      payload: flexMessage,
+      success: true,
+      deliveredToCustomer: customerSent,
+      deliveredToAdmin: adminSent,
+      customerUserId: customerUserId ? `${customerUserId.slice(0, 4)}...${customerUserId.slice(-4)}` : null,
+      adminUserId: adminUserId ? `${adminUserId.slice(0, 4)}...${adminUserId.slice(-4)}` : null,
+      message: customerSent
+        ? `ส่งแจ้งเตือนถึง LINE ลูกค้าและสตูดิโอเรียบร้อย`
+        : adminSent
+        ? `ส่งแจ้งเตือนเข้าผู้ดูแลสตูดิโอเรียบร้อย (ลูกค้ายังไม่ได้ผูก LINE)`
+        : `บันทึกข้อมูลเรียบร้อย`,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {

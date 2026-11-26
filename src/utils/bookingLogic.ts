@@ -38,6 +38,7 @@ export interface BookingRecord {
   paymentSlipUrl?: string;
   isPackageRefunded?: boolean;
   isPackageForfeited?: boolean;
+  lineUserId?: string;
 }
 
 export interface PackageDeal {
@@ -72,6 +73,7 @@ export interface CustomerPackage {
   expiryDate: string;
   status: 'active' | 'exhausted' | 'cancelled';
   pricePaid: number;
+  lineUserId?: string;
 }
 
 export interface DateOption {
@@ -241,6 +243,77 @@ export const INITIAL_CUSTOMER_PACKAGES: CustomerPackage[] = [
     pricePaid: 2700,
   },
 ];
+
+/**
+ * Filter customer packages for redemption matching query (phone, ID, name, car)
+ */
+export function findCustomerPackages(
+  packages: CustomerPackage[],
+  query?: string
+): CustomerPackage[] {
+  const activePackages = packages.filter(
+    (p) => p.status === 'active' && p.remainingQuota > 0
+  );
+  if (!query || !query.trim()) {
+    return activePackages;
+  }
+  const clean = query.trim().toLowerCase().replace(/[-\s]/g, '');
+  return activePackages.filter((p) => {
+    const idMatch = p.id.toLowerCase().replace(/[-\s]/g, '').includes(clean);
+    const phoneMatch = p.phone.replace(/[-\s]/g, '').includes(clean);
+    const nameMatch = p.customerName.toLowerCase().includes(clean);
+    const carMatch = p.carInfo.toLowerCase().includes(clean);
+    return idMatch || phoneMatch || nameMatch || carMatch;
+  });
+}
+
+/**
+ * Validate customer booking details before package redemption
+ */
+export function validatePackageRedemption(params: {
+  customerName: string;
+  phone: string;
+  carInfo: string;
+  selectedPackage?: CustomerPackage | null;
+}): { isValid: boolean; errorTh?: string; errorEn?: string } {
+  if (!params.customerName || !params.customerName.trim()) {
+    return {
+      isValid: false,
+      errorTh: 'กรุณากรอกชื่อผู้ติดต่อสำหรับยืนยันการใช้สิทธิ์',
+      errorEn: 'Please provide customer name to redeem package',
+    };
+  }
+  const phoneDigits = params.phone.replace(/\D/g, '');
+  if (!params.phone || !params.phone.trim() || phoneDigits.length < 9) {
+    return {
+      isValid: false,
+      errorTh: 'กรุณากรอกเบอร์โทรศัพท์ที่ถูกต้อง (อย่างน้อย 9-10 หลัก)',
+      errorEn: 'Please provide a valid phone number (at least 9-10 digits)',
+    };
+  }
+  if (!params.carInfo || !params.carInfo.trim()) {
+    return {
+      isValid: false,
+      errorTh: 'กรุณาระบุข้อมูลรถยนต์ / ทะเบียนรถ',
+      errorEn: 'Please provide vehicle / license plate info',
+    };
+  }
+  if (!params.selectedPackage) {
+    return {
+      isValid: false,
+      errorTh: 'กรุณาเลือกแพ็คเกจที่ต้องการใช้สิทธิ์',
+      errorEn: 'Please select a package to redeem',
+    };
+  }
+  if (params.selectedPackage.status !== 'active' || params.selectedPackage.remainingQuota <= 0) {
+    return {
+      isValid: false,
+      errorTh: 'แพ็คเกจนี้ไม่มีสิทธิ์คงเหลือ หรือหมดอายุแล้ว',
+      errorEn: 'This package has no remaining quota or is expired',
+    };
+  }
+  return { isValid: true };
+}
 
 // Cancellation policy for package bookings:
 // If cancelled within 15 minutes of booking creation: 100% refund quota.

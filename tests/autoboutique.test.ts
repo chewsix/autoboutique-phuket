@@ -18,6 +18,8 @@ import {
   formatBookingDate,
   OFFICIAL_PACKAGES,
   INITIAL_CUSTOMER_PACKAGES,
+  findCustomerPackages,
+  validatePackageRedemption,
   checkCancellationPackagePolicy,
   formatPhoneInput,
   isValidThaiPhone,
@@ -808,6 +810,176 @@ describe('Autoboutique Phuket - Luxury Detailing & Wash Studio Test Suite', () =
 
       // 10-digit mobile fallback test
       assert.strictEqual(formatPromptPayId('0661098306'), '066-109-8306');
+    });
+  });
+
+  // =========================================================================
+  // TEST SUITE 14: Package Redemption (฿0) & Multi-Recipient LINE Routing Engine
+  // =========================================================================
+  describe('Suite 14: Package Redemption (฿0) & Multi-Recipient LINE Routing Engine', () => {
+    it('TC-48: findCustomerPackages filters active passes by query and skips exhausted packages', () => {
+      const testPackages: CustomerPackage[] = [
+        {
+          id: 'CPKG-001',
+          packageId: 'PKG-WASH-12',
+          serviceKey: 'wash',
+          packageNameTh: 'แพ็คเกจล้างรถพรีเมียม 12 ครั้ง',
+          packageNameEn: 'Super Wash Pass (12 Sessions)',
+          customerName: 'คุณอัครวัฒน์ ชัยกิตติคุณ',
+          phone: '089-999-8877',
+          carInfo: 'BMW M2 Coupe (กข 8888 ภูเก็ต)',
+          totalQuota: 12,
+          remainingQuota: 11,
+          purchaseDate: '2026-11-01',
+          expiryDate: '2027-11-01',
+          status: 'active',
+          pricePaid: 5000,
+        },
+        {
+          id: 'CPKG-002',
+          packageId: 'PKG-WASH-6',
+          serviceKey: 'wash',
+          packageNameTh: 'แพ็คเกจล้างรถพรีเมียม 6 ครั้ง',
+          packageNameEn: 'Mini Wash Pass (6 Sessions)',
+          customerName: 'คุณวิชัย รัตนการุณ',
+          phone: '081-345-6789',
+          carInfo: 'Porsche 911 GT3 (7กง 7777 ภูเก็ต)',
+          totalQuota: 6,
+          remainingQuota: 0,
+          purchaseDate: '2026-11-15',
+          expiryDate: '2027-05-15',
+          status: 'exhausted',
+          pricePaid: 2700,
+        },
+      ];
+
+      // No query returns only active packages with quota > 0
+      const activeOnly = findCustomerPackages(testPackages);
+      assert.strictEqual(activeOnly.length, 1);
+      assert.strictEqual(activeOnly[0].id, 'CPKG-001');
+
+      // Query by phone
+      const byPhone = findCustomerPackages(testPackages, '0899998877');
+      assert.strictEqual(byPhone.length, 1);
+      assert.strictEqual(byPhone[0].customerName, 'คุณอัครวัฒน์ ชัยกิตติคุณ');
+
+      // Query by package ID
+      const byId = findCustomerPackages(testPackages, 'CPKG-001');
+      assert.strictEqual(byId.length, 1);
+
+      // Exhausted package cannot be redeemed even if searched
+      const byExhausted = findCustomerPackages(testPackages, 'CPKG-002');
+      assert.strictEqual(byExhausted.length, 0, 'Exhausted passes must never appear in redeem list');
+    });
+
+    it('TC-49: validatePackageRedemption validates customer details, phone format, and active pass', () => {
+      const activePkg: CustomerPackage = {
+        id: 'CPKG-001',
+        packageId: 'PKG-WASH-12',
+        serviceKey: 'wash',
+        packageNameTh: 'แพ็คเกจล้างรถพรีเมียม 12 ครั้ง',
+        packageNameEn: 'Super Wash Pass (12 Sessions)',
+        customerName: 'คุณอัครวัฒน์ ชัยกิตติคุณ',
+        phone: '089-999-8877',
+        carInfo: 'BMW M2 Coupe (กข 8888 ภูเก็ต)',
+        totalQuota: 12,
+        remainingQuota: 5,
+        purchaseDate: '2026-11-01',
+        expiryDate: '2027-11-01',
+        status: 'active',
+        pricePaid: 5000,
+      };
+
+      // Missing name
+      const res1 = validatePackageRedemption({
+        customerName: '',
+        phone: '089-999-8877',
+        carInfo: 'BMW M2',
+        selectedPackage: activePkg,
+      });
+      assert.strictEqual(res1.isValid, false);
+      assert.strictEqual(res1.errorTh?.includes('ชื่อ'), true);
+
+      // Invalid phone (< 9 digits)
+      const res2 = validatePackageRedemption({
+        customerName: 'สมชาย',
+        phone: '123',
+        carInfo: 'BMW M2',
+        selectedPackage: activePkg,
+      });
+      assert.strictEqual(res2.isValid, false);
+      assert.strictEqual(res2.errorTh?.includes('เบอร์โทรศัพท์'), true);
+
+      // Missing car
+      const res3 = validatePackageRedemption({
+        customerName: 'สมชาย',
+        phone: '089-999-8877',
+        carInfo: '',
+        selectedPackage: activePkg,
+      });
+      assert.strictEqual(res3.isValid, false);
+      assert.strictEqual(res3.errorTh?.includes('รถยนต์'), true);
+
+      // Missing package
+      const res4 = validatePackageRedemption({
+        customerName: 'สมชาย',
+        phone: '089-999-8877',
+        carInfo: 'BMW M2',
+        selectedPackage: null,
+      });
+      assert.strictEqual(res4.isValid, false);
+
+      // Complete valid submission
+      const res5 = validatePackageRedemption({
+        customerName: 'สมชาย ใจดี',
+        phone: '089-999-8877',
+        carInfo: 'BMW M2 Coupe',
+        selectedPackage: activePkg,
+      });
+      assert.strictEqual(res5.isValid, true);
+    });
+
+    it('TC-50: Package redemption assigns paidAmount: 0, paymentMethod: package, and preserves lineUserId', () => {
+      const activePkg: CustomerPackage = {
+        id: 'CPKG-001',
+        packageId: 'PKG-WASH-12',
+        serviceKey: 'wash',
+        packageNameTh: 'แพ็คเกจล้างรถพรีเมียม 12 ครั้ง',
+        packageNameEn: 'Super Wash Pass (12 Sessions)',
+        customerName: 'คุณอัครวัฒน์ ชัยกิตติคุณ',
+        phone: '089-999-8877',
+        carInfo: 'BMW M2 Coupe (กข 8888 ภูเก็ต)',
+        totalQuota: 12,
+        remainingQuota: 11,
+        purchaseDate: '2026-11-01',
+        expiryDate: '2027-11-01',
+        status: 'active',
+        pricePaid: 5000,
+        lineUserId: 'U1234567890abcdef1234567890abcdef',
+      };
+
+      const redeemedBooking: BookingRecord = {
+        id: 'BK-009',
+        timeSlot: '10:30',
+        customerName: activePkg.customerName,
+        phone: activePkg.phone,
+        carInfo: activePkg.carInfo,
+        serviceKey: 'wash',
+        service: 'ล้างรถพรีเมียม',
+        date: '2026-11-26',
+        status: 'pending',
+        paidAmount: 0,
+        paymentMethod: 'package',
+        paymentStatus: 'package_redeemed',
+        usedPackageId: activePkg.id,
+        lineUserId: activePkg.lineUserId,
+      };
+
+      assert.strictEqual(redeemedBooking.paidAmount, 0, 'Package booking must be strictly ฿0');
+      assert.strictEqual(redeemedBooking.paymentMethod, 'package');
+      assert.strictEqual(redeemedBooking.paymentStatus, 'package_redeemed');
+      assert.strictEqual(redeemedBooking.usedPackageId, 'CPKG-001');
+      assert.strictEqual(redeemedBooking.lineUserId, 'U1234567890abcdef1234567890abcdef');
     });
   });
 });
