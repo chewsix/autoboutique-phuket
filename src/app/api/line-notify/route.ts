@@ -159,12 +159,17 @@ export async function POST(req: NextRequest) {
       }
     };
 
+    const isDone = stageName.includes('เสร็จ') || stageName.includes('ready') || stageNumber === 5;
+    const isWashing = stageName.includes('ดำเนิน') || stageName.includes('progress') || stageNumber < 5;
+
     // Build Customer Flex Message Payload (Bubble format - Clean executive card)
     const customerFlexMessage = {
       type: 'flex',
       altText: isBookingConfirmed
         ? `✅ ยืนยันการจองคิวล้างรถสำเร็จ: ${carDisplay} (${date} เวลา ${timeSlot} น.)`
-        : `🚗 อัปเดตสถานะรถของคุณ: ${carDisplay} (${stageName})`,
+        : isDone
+        ? `✨ [Autoboutique Phuket] รถของคุณล้างเสร็จแล้ว: ${carDisplay}`
+        : `🚗 [Autoboutique Phuket] กำลังดำเนินการล้างรถของคุณ: ${carDisplay}`,
       contents: {
         type: 'bubble',
         header: {
@@ -177,14 +182,16 @@ export async function POST(req: NextRequest) {
               type: 'text',
               text: 'AUTOBOUTIQUE PHUKET',
               weight: 'bold',
-              color: '#38BDF8',
+              color: isDone ? '#34D399' : '#38BDF8',
               size: 'xs',
             },
             {
               type: 'text',
               text: isBookingConfirmed
                 ? '✅ ยืนยันการจองคิวล้างรถสำเร็จ!'
-                : '🚗 อัปเดตสถานะการล้างรถของคุณ',
+                : isDone
+                ? '✨ รถของคุณล้างเสร็จเรียบร้อยแล้ว!'
+                : '🚗 กำลังดำเนินการล้างรถของคุณ',
               weight: 'bold',
               color: '#FFFFFF',
               size: 'md',
@@ -205,9 +212,9 @@ export async function POST(req: NextRequest) {
             },
             {
               type: 'text',
-              text: `บริการ: ${service}`,
+              text: isDone ? 'สถานะ: รถสะอาดเงางาม 100% พร้อมรับรถ' : 'สถานะ: ช่างกำลังทำความสะอาดในช่องบริการ',
               size: 'xs',
-              color: '#1D4ED8',
+              color: isDone ? '#059669' : '#1D4ED8',
               weight: 'bold',
               margin: 'xs',
             },
@@ -271,21 +278,30 @@ export async function POST(req: NextRequest) {
                       type: 'box',
                       layout: 'horizontal',
                       contents: [
-                        { type: 'text', text: 'ขั้นตอนปัจจุบัน:', size: 'xs', color: '#64748B', flex: 4 },
-                        { type: 'text', text: `ขั้นที่ ${stageNumber}/5`, size: 'xs', color: '#0284C7', weight: 'bold', align: 'end', flex: 3 },
+                        { type: 'text', text: 'สถานะงาน:', size: 'xs', color: '#64748B', flex: 4 },
+                        {
+                          type: 'text',
+                          text: isDone ? '✨ รถเสร็จแล้ว' : '🚗 กำลังดำเนินการ',
+                          size: 'xs',
+                          color: isDone ? '#059669' : '#0284C7',
+                          weight: 'bold',
+                          align: 'end',
+                          flex: 5,
+                        },
                       ],
                     },
                     {
                       type: 'text',
-                      text: stageName,
-                      weight: 'bold',
-                      size: 'sm',
-                      color: '#0F172A',
+                      text: isDone
+                        ? 'รถของท่านผ่านการตรวจ QC เรียบร้อย พร้อมให้ท่านมารับรถได้ทันทีครับ 🚗💨'
+                        : 'รถของท่านกำลังอยู่ระหว่างการล้าง ดูดฝุ่น และทำความสะอาดอย่างประณีต ✨',
+                      size: 'xs',
+                      color: '#334155',
                       margin: 'xs',
                     },
                     {
                       type: 'text',
-                      text: `รหัสจอง: ${bookingId} • ${date} (${timeSlot} น.)`,
+                      text: `รหัสจอง: #${bookingId} • วันนี้ (${timeSlot} น.)`,
                       size: 'xxs',
                       color: '#94A3B8',
                       margin: 'xs',
@@ -623,7 +639,10 @@ export async function POST(req: NextRequest) {
         // Stage update:
         // 1. If customer has a LINE User ID, push to customer
         if (customerUserId) {
-          const stageText = `🚗 [Autoboutique Phuket] อัปเดตสถานะรถสด!\nทะเบียน/รถ: ${carInfo}\n📍 ขั้นตอนที่ ${stageNumber}/5: ${stageName}\n📅 วันนัดหมาย: ${date} (${timeSlot} น.)\n🔖 รหัสจอง: #${bookingId}`;
+          const isDone = stageName.includes('เสร็จ') || stageName.includes('ready') || stageNumber === 5;
+          const stageText = isDone
+            ? `✨ [Autoboutique Phuket] รถของคุณล้างเสร็จเรียบร้อยแล้วครับ!\n🚗 รถยนต์: ${carInfo}\n👤 คุณ: ${customerName}\n🔖 รหัสจอง: #${bookingId}\nสามารถติดต่อรับรถที่สตูดิโอได้ทันทีครับ 🚗💨`
+            : `🚗 [Autoboutique Phuket] กำลังดำเนินการล้างรถของคุณครับ!\n🚗 รถยนต์: ${carInfo}\n👤 คุณ: ${customerName}\n🔖 รหัสจอง: #${bookingId}\nเจ้าหน้าที่กำลังทำความสะอาดและดูแลอย่างประณีตครับ ✨`;
           customerSent = await sendPush(customerUserId, customerFlexMessage, stageText);
         }
 

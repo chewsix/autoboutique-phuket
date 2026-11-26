@@ -54,6 +54,11 @@ import {
   Sun,
   Moon,
   MessageCircle,
+  FileSpreadsheet,
+  FileText,
+  Table,
+  ClipboardCopy,
+  Eye,
 } from 'lucide-react';
 
 import {
@@ -87,11 +92,25 @@ import {
   PROMPTPAY_NAME,
   formatPromptPayId,
   BookingRecord,
+  CustomerProfile,
+  extractCustomerProfiles,
+  normalizeWorkStatus,
+  getStatusLabel,
+  CarSize,
+  CAR_SIZE_PRICING,
   PackageDeal,
   CustomerPackage,
   CalendarDay,
   ServiceType,
   Language,
+  DailyReportSummary,
+  MonthlyReportSummary,
+  YearlyReportSummary,
+  generateDailyReportSummary,
+  generateMonthlyReportSummary,
+  generateYearlyReportSummary,
+  formatBookingsToCsv,
+  formatBookingsToTsv,
 } from '@/utils/bookingLogic';
 
 import {
@@ -103,22 +122,23 @@ import {
   upsertRemotePackage,
 } from '@/utils/supabaseClient';
 
-// Initial Realistic Car Wash Bookings (Flat ฿500 Base Rate - No Car Size Matrix)
+// Initial Realistic Car Wash Bookings (Car Size Matrix: S, M, L, XL, XXL, สเปเชียล)
 const INITIAL_BOOKINGS: BookingRecord[] = [
   {
     id: 'BK-001',
     timeSlot: '08:30',
     customerName: 'คุณอัครวัฒน์ ชัยกิตติคุณ',
     phone: '066-109-8306',
+    carModel: 'BMW M2 Coupe',
+    carColor: 'น้ำเงิน Long Beach Blue',
+    licensePlate: 'กข 8888 ภูเก็ต',
     carInfo: 'BMW M2 Coupe (กข 8888 ภูเก็ต)',
-    serviceKey: 'wash',
-    service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
-    subOptionId: 'wax',
-    subOption: '+ เคลือบสีสูตร Hydrophobic Deep Gloss (+฿400)',
+    size: 'M',
+    service: 'ล้างรถพรีเมียม & ดูดฝุ่นภายใน',
     date: '2026-11-25',
-    status: 'step3',
+    status: 'in_progress',
     createdAt: '2026-11-25T07:30:00Z',
-    paidAmount: 900,
+    paidAmount: 300,
     paymentMethod: 'promptpay',
     paymentStatus: 'paid',
   },
@@ -127,52 +147,90 @@ const INITIAL_BOOKINGS: BookingRecord[] = [
     timeSlot: '09:30',
     customerName: 'คุณสิริพร พัฒนพงศ์',
     phone: '084-555-9090',
+    carModel: 'Toyota Alphard Executive',
+    carColor: 'ขาวมุก Pearl White',
+    licensePlate: '3ขข 1234 ภูเก็ต',
     carInfo: 'Toyota Alphard (3ขข 1234 ภูเก็ต)',
-    serviceKey: 'wash',
-    service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
-    subOptionId: 'standard',
-    subOption: 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน',
+    size: 'XXL',
+    service: 'ล้างรถพรีเมียม & ดูดฝุ่นภายใน',
     date: '2026-11-25',
-    status: 'step2',
+    status: 'completed',
     createdAt: '2026-11-25T08:15:00Z',
-    paidAmount: 500,
+    paidAmount: 550,
     paymentMethod: 'promptpay',
     paymentStatus: 'paid',
   },
   {
     id: 'BK-003',
-    timeSlot: '13:00',
-    customerName: 'Mr. Alexander Vance',
-    phone: '091-234-5678',
-    carInfo: 'Porsche 911 Carrera (7กง 7777 ภูเก็ต)',
-    serviceKey: 'wash',
-    service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
-    subOptionId: 'engine',
-    subOption: '+ ล้างห้องเครื่องขจัดคราบน้ำมัน (+฿500)',
+    timeSlot: '10:30',
+    customerName: 'คุณกรรณิการ์ สุขสวัสดิ์',
+    phone: '089-123-4567',
+    carModel: 'Toyota Yaris Hatchback',
+    carColor: 'แดง Spicy Red',
+    licensePlate: '1กง 2345 ภูเก็ต',
+    carInfo: 'Toyota Yaris (1กง 2345 ภูเก็ต)',
+    size: 'S',
+    service: 'ล้างรถพรีเมียม & ดูดฝุ่นภายใน',
     date: '2026-11-25',
-    status: 'step1',
-    createdAt: '2026-11-25T09:30:00Z',
-    paidAmount: 1000,
+    status: 'completed',
+    createdAt: '2026-11-25T09:00:00Z',
+    paidAmount: 250,
     paymentMethod: 'promptpay',
     paymentStatus: 'paid',
   },
   {
     id: 'BK-004',
-    timeSlot: '14:00',
+    timeSlot: '13:00',
     customerName: 'คุณวิชัย รัตนการุณ',
     phone: '081-345-6789',
-    carInfo: 'Mercedes-Benz G-Class (5กษ 9999 ภูเก็ต)',
-    serviceKey: 'wash',
-    service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
-    subOptionId: 'standard',
-    subOption: 'ล้างพรีเมียม + ดูดฝุ่นมาตรฐาน (สิทธิ์แพ็คเกจ)',
+    carModel: 'Toyota Fortuner GR Sport',
+    carColor: 'ดำเงา Attitude Black',
+    licensePlate: '5กษ 9999 ภูเก็ต',
+    carInfo: 'Toyota Fortuner (5กษ 9999 ภูเก็ต)',
+    size: 'XL',
+    service: 'ล้างรถพรีเมียม & ดูดฝุ่นภายใน',
     date: '2026-11-25',
-    status: 'pending',
+    status: 'in_progress',
     createdAt: '2026-11-25T11:00:00Z',
-    paidAmount: 0,
-    paymentMethod: 'package',
-    paymentStatus: 'package_redeemed',
-    usedPackageId: 'CPKG-002',
+    paidAmount: 450,
+    paymentMethod: 'promptpay',
+    paymentStatus: 'paid',
+  },
+  {
+    id: 'BK-005',
+    timeSlot: '14:30',
+    customerName: 'คุณภัทรเดช บุญญา',
+    phone: '082-999-8877',
+    carModel: 'Honda CR-V e:HEV',
+    carColor: 'เทาเมทัลลิก Meteoroid Grey',
+    licensePlate: '4ขง 5678 ภูเก็ต',
+    carInfo: 'Honda CR-V (4ขง 5678 ภูเก็ต)',
+    size: 'L',
+    service: 'ล้างรถพรีเมียม & ดูดฝุ่นภายใน',
+    date: '2026-11-26',
+    status: 'pending',
+    createdAt: '2026-11-26T08:00:00Z',
+    paidAmount: 350,
+    paymentMethod: 'promptpay',
+    paymentStatus: 'paid',
+  },
+  {
+    id: 'BK-010',
+    timeSlot: '15:30',
+    customerName: 'คุณกรกนก สุวรรณฉัตร',
+    phone: '091-036-2546',
+    carModel: 'Porsche 911 GT3 RS (รถแรง)',
+    carColor: 'เหลือง Racing Yellow',
+    licensePlate: '111 ภูเก็ต',
+    carInfo: 'Porsche 911 (111 ภูเก็ต)',
+    size: 'สเปเชียล',
+    service: 'ล้างรถพรีเมียม & ดูดฝุ่นภายใน',
+    date: '2026-11-26',
+    status: 'completed',
+    createdAt: '2026-11-26T09:30:00Z',
+    paidAmount: 700,
+    paymentMethod: 'promptpay',
+    paymentStatus: 'paid',
   },
 ];
 
@@ -208,6 +266,8 @@ export default function AutoboutiqueApp() {
   // Booking Flow State
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3>(1);
   const selectedService = SERVICE_SHOWCASE_DATA.wash;
+  const [selectedCarSize, setSelectedCarSize] = useState<CarSize>('M');
+  const [isTestPriceMode, setIsTestPriceMode] = useState<boolean>(false);
   const [selectedSubOption, setSelectedSubOption] = useState<string>('standard');
   const [selectedDate, setSelectedDate] = useState<string>('2026-11-25');
   const [bookingTimeSlot, setBookingTimeSlot] = useState<string>('09:30');
@@ -215,9 +275,12 @@ export default function AutoboutiqueApp() {
   const [selectedMonthIdx, setSelectedMonthIdx] = useState<number>(0);
   const [calendarViewMode, setCalendarViewMode] = useState<'week' | 'month'>('week');
 
-  // Client & Vehicle Form State
+  // Client & Vehicle Form State (ชื่อลูกค้า, เบอร์โทร, รุ่นรถ, สีรถ, ทะเบียน)
   const [formName, setFormName] = useState('');
   const [formPhone, setFormPhone] = useState('');
+  const [formCarModel, setFormCarModel] = useState('');
+  const [formCarColor, setFormCarColor] = useState('');
+  const [formLicensePlate, setFormLicensePlate] = useState('');
   const [formCar, setFormCar] = useState('');
   const [activeCarId, setActiveCarId] = useState<string>('BK-001');
 
@@ -250,14 +313,22 @@ export default function AutoboutiqueApp() {
   const [adminPinModalOpen, setAdminPinModalOpen] = useState<boolean>(false);
   const [pinInput, setPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<boolean>(false);
-  const [adminActiveTab, setAdminActiveTab] = useState<'dashboard' | 'bookings' | 'packages'>('dashboard');
+  const [adminActiveTab, setAdminActiveTab] = useState<'queue' | 'customers' | 'reports'>('queue');
   const [adminDateScope, setAdminDateScope] = useState<'all' | 'today' | 'custom'>('all');
   const [adminSelectedDate, setAdminSelectedDate] = useState<string>('2026-11-25');
   const [adminBookingFilter, setAdminBookingFilter] = useState<'all' | 'pending' | 'inprogress' | 'ready' | 'cancelled'>('all');
+  const [adminSizeFilter, setAdminSizeFilter] = useState<'all' | CarSize>('all');
   const [adminSearchTerm, setAdminSearchTerm] = useState<string>('');
   const [adminLineModalBooking, setAdminLineModalBooking] = useState<BookingRecord | null>(null);
   const [customLineUserIdInput, setCustomLineUserIdInput] = useState<string>('');
   const [lastActiveLineUser, setLastActiveLineUser] = useState<string | null>(null);
+
+  // Studio Reporting State (Daily, Monthly, Yearly)
+  const [reportType, setReportType] = useState<'daily' | 'monthly' | 'yearly'>('daily');
+  const [reportSelectedDate, setReportSelectedDate] = useState<string>('2026-11-25');
+  const [reportSelectedMonth, setReportSelectedMonth] = useState<string>('2026-11');
+  const [reportSelectedYear, setReportSelectedYear] = useState<string>('2026');
+  const [crmSearchTerm, setCrmSearchTerm] = useState<string>('');
 
   // Modals & Inspection State
   const [walkInModalOpen, setWalkInModalOpen] = useState(false);
@@ -325,10 +396,10 @@ export default function AutoboutiqueApp() {
 
   const slipFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate pricing
+  // Calculate pricing based on selected car size and optional test price mode
   const priceResult = useMemo(() => {
-    return calculatePrice('wash', selectedSubOption);
-  }, [selectedSubOption]);
+    return calculatePrice('wash', selectedCarSize, isTestPriceMode);
+  }, [selectedCarSize, isTestPriceMode]);
 
   const currentPrice = priceResult.price;
 
@@ -405,7 +476,17 @@ export default function AutoboutiqueApp() {
         const savedBookings = localStorage.getItem('autoboutique_luxe_bookings');
         if (savedBookings) {
           const parsed = JSON.parse(savedBookings);
-          if (Array.isArray(parsed)) setBookings(parsed);
+          if (Array.isArray(parsed)) {
+            const hydrated = parsed.map((b: any) => {
+              if (b.size) return b;
+              const matched = INITIAL_BOOKINGS.find((init) => init.id === b.id);
+              return {
+                ...b,
+                size: matched?.size || 'M',
+              };
+            });
+            setBookings(hydrated);
+          }
         }
         const savedActiveCar = localStorage.getItem('autoboutique_luxe_active_car_id');
         if (savedActiveCar) setActiveCarId(savedActiveCar);
@@ -821,18 +902,25 @@ export default function AutoboutiqueApp() {
       return match ? Math.max(max, parseInt(match[0], 10)) : max;
     }, 0) + 1;
     const newBookingId = `BK-${String(nextNum).padStart(3, '0')}`;
-    const cleanSubOpt = SERVICE_SUB_OPTIONS.wash.find((s) => s.id === selectedSubOption);
+    const carModelTrimmed = formCarModel.trim();
+    const carColorTrimmed = formCarColor.trim();
+    const licensePlateTrimmed = formLicensePlate.trim();
+    const combinedCarInfo = (formCar.trim() || `${carModelTrimmed} ${carColorTrimmed ? `(${carColorTrimmed})` : ''} ${licensePlateTrimmed}`.trim()) || 'รถยนต์ลูกค้า (ภูเก็ต)';
 
     const newRecord: BookingRecord = {
       id: newBookingId,
       timeSlot: bookingTimeSlot,
       customerName: formName.trim() || 'คุณลูกค้า VIP',
       phone: formPhone.trim() || '066-109-8306',
-      carInfo: formCar.trim() || 'รถยนต์ลูกค้า (ภูเก็ต)',
+      carModel: carModelTrimmed || (formCar.includes('(') ? formCar.split('(')[0].trim() : 'รถยนต์ส่วนบุคคล'),
+      carColor: carColorTrimmed || 'ไม่ระบุสี',
+      licensePlate: licensePlateTrimmed || (formCar.includes('(') ? formCar.split('(')[1].replace(')', '').trim() : formCar.trim()),
+      carInfo: combinedCarInfo,
+      size: selectedCarSize,
       serviceKey: 'wash',
-      service: 'ล้างรถพรีเมียม & คลีนภายใน (Car Detailing & Premium Car Wash)',
-      subOptionId: selectedSubOption,
-      subOption: isTh ? cleanSubOpt?.labelTh : cleanSubOpt?.labelEn,
+      service: `ล้างรถพรีเมียม & ดูดฝุ่นภายใน (ขนาด ${selectedCarSize})`,
+      subOptionId: 'standard',
+      subOption: `ขนาดรถ ${selectedCarSize} - ${CAR_SIZE_PRICING[selectedCarSize]?.labelTh || ''}`,
       date: selectedDate,
       status: 'pending',
       createdAt: new Date().toISOString(),
@@ -990,7 +1078,7 @@ export default function AutoboutiqueApp() {
     }
   };
 
-  // Admin Stage Advancement
+  // Admin Stage Advancement (Simplified 2-stage operational flow: กำลังดำเนินการ & รถเสร็จแล้ว)
   const handleUpdateBookingStage = async (id: string, newStatus: BookingRecord['status']) => {
     const targetBooking = bookings.find((b) => b.id === id);
     setBookings((prev) =>
@@ -998,8 +1086,9 @@ export default function AutoboutiqueApp() {
     );
 
     if (targetBooking) {
-      const stageNum = mapStatusToStage(newStatus);
-      const stageInfo = getStageDetails(stageNum, isTh);
+      const isDone = newStatus === 'completed' || newStatus === 'ready';
+      const stageNameTh = isDone ? 'รถเสร็จแล้ว' : 'กำลังดำเนินการ';
+      const stageNum = isDone ? 5 : 2;
 
       await sendLineNotification({
         type: 'stage_update',
@@ -1010,30 +1099,23 @@ export default function AutoboutiqueApp() {
         service: targetBooking.service,
         timeSlot: targetBooking.timeSlot,
         date: targetBooking.date,
-        stageName: isTh ? stageInfo.titleTh : stageInfo.titleEn,
+        stageName: stageNameTh,
         stageNumber: stageNum,
-        stagePhotoUrl: stageInfo.photoUrl,
-        lineUserId: targetBooking.lineUserId,
+        stagePhotoUrl: isDone
+          ? 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&w=1200&q=80'
+          : 'https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?auto=format&fit=crop&w=1200&q=80',
+        lineUserId: targetBooking.lineUserId || lastActiveLineUser || 'Uf56b174c54c8be354754f7dddc9d08dc',
       });
 
       // Sync updated stage to Supabase
       updateRemoteBookingStatus(id, newStatus);
 
-      if (targetBooking.lineUserId) {
-        showToast(
-          isTh
-            ? `🔄 อัปเดตคิว ${id} และส่งแจ้งเตือนเข้า LINE ลูกค้าเรียบร้อย`
-            : `Stage updated & notified customer LINE`,
-          3500
-        );
-      } else {
-        showToast(
-          isTh
-            ? `🔄 อัปเดตสถานะคิว ${id} และส่งแจ้งเตือนเข้า LINE สตูดิโอเรียบร้อย (ลูกค้ายังไม่ผูก LINE)`
-            : `Stage updated & notified studio LINE`,
-          3500
-        );
-      }
+      showToast(
+        isTh
+          ? `✓ ปรับสถานะเป็น "${stageNameTh}" พร้อมส่งข้อความแจ้งเตือน LINE หาคุณ${targetBooking.customerName} เรียบร้อย`
+          : `✓ Stage updated to "${stageNameTh}" and notified customer via LINE`,
+        3500
+      );
     }
   };
 
@@ -1255,9 +1337,9 @@ export default function AutoboutiqueApp() {
 
     const activeBookings = targetBookings.filter((b) => b.status !== 'cancelled');
     const revenue = activeBookings.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
-    const completed = activeBookings.filter((b) => b.status === 'ready').length;
-    const inProgress = activeBookings.filter((b) => ['step1', 'step2', 'step3', 'step4'].includes(b.status)).length;
-    const pending = activeBookings.filter((b) => b.status === 'pending').length;
+    const completed = activeBookings.filter((b) => normalizeWorkStatus(b.status) === 'completed').length;
+    const inProgress = activeBookings.filter((b) => normalizeWorkStatus(b.status) === 'in_progress').length;
+    const pending = activeBookings.filter((b) => normalizeWorkStatus(b.status) === 'pending').length;
     const packageCount = activeBookings.filter((b) => b.paymentMethod === 'package').length;
     const lineLinkedCount = activeBookings.filter((b) => Boolean(b.lineUserId)).length;
     const totalSlots = isAllScope ? Math.max(activeBookings.length, 12) : TIME_SLOTS.length * 2;
@@ -1277,7 +1359,7 @@ export default function AutoboutiqueApp() {
     };
   }, [bookings, adminDateScope, adminSelectedDate, selectedDate]);
 
-  // Admin Filtered Bookings across All Dates or Specific Date
+  // Admin Filtered Bookings across All Dates or Specific Date + Size Filter
   const adminFilteredBookings = useMemo(() => {
     let result = bookings.filter((b) => {
       if (adminDateScope === 'all') {
@@ -1289,12 +1371,20 @@ export default function AutoboutiqueApp() {
         if (b.date !== adminSelectedDate) return false;
       }
 
-      if (adminBookingFilter === 'all') return b.status !== 'cancelled';
-      if (adminBookingFilter === 'pending') return b.status === 'pending';
-      if (adminBookingFilter === 'inprogress') return ['step1', 'step2', 'step3', 'step4'].includes(b.status);
-      if (adminBookingFilter === 'ready') return b.status === 'ready';
-      if (adminBookingFilter === 'cancelled') return b.status === 'cancelled';
-      return b.status !== 'cancelled';
+      // Size Filter
+      if (adminSizeFilter !== 'all') {
+        const itemSize = b.size || 'M';
+        if (itemSize !== adminSizeFilter) return false;
+      }
+
+      // Status Filter (Normalized 2 core stages: กำลังดำเนินการ / รถเสร็จแล้ว)
+      const norm = normalizeWorkStatus(b.status);
+      if (adminBookingFilter === 'all') return norm !== 'cancelled';
+      if (adminBookingFilter === 'pending') return norm === 'pending';
+      if (adminBookingFilter === 'inprogress') return norm === 'in_progress';
+      if (adminBookingFilter === 'ready') return norm === 'completed';
+      if (adminBookingFilter === 'cancelled') return norm === 'cancelled';
+      return norm !== 'cancelled';
     });
 
     if (adminSearchTerm.trim()) {
@@ -1303,6 +1393,10 @@ export default function AutoboutiqueApp() {
       result = result.filter((b) => {
         return (
           b.carInfo.toLowerCase().includes(q) ||
+          (b.carModel && b.carModel.toLowerCase().includes(q)) ||
+          (b.carColor && b.carColor.toLowerCase().includes(q)) ||
+          (b.licensePlate && b.licensePlate.toLowerCase().includes(q)) ||
+          (b.size && b.size.toLowerCase().includes(q)) ||
           b.customerName.toLowerCase().includes(q) ||
           b.id.toLowerCase().includes(q) ||
           b.date.toLowerCase().includes(q) ||
@@ -1318,7 +1412,93 @@ export default function AutoboutiqueApp() {
     });
 
     return result;
-  }, [bookings, adminDateScope, adminSelectedDate, selectedDate, adminBookingFilter, adminSearchTerm]);
+  }, [bookings, adminDateScope, adminSelectedDate, selectedDate, adminBookingFilter, adminSizeFilter, adminSearchTerm]);
+
+  // Customer CRM Profiles (Directory of Unique Clients)
+  const customerProfiles = useMemo(() => {
+    let profiles = extractCustomerProfiles(bookings);
+    if (crmSearchTerm.trim()) {
+      const q = crmSearchTerm.toLowerCase().trim();
+      const cleanNums = q.replace(/[^0-9]/g, '');
+      profiles = profiles.filter((p) => {
+        return (
+          p.customerName.toLowerCase().includes(q) ||
+          p.carModel.toLowerCase().includes(q) ||
+          p.carColor.toLowerCase().includes(q) ||
+          p.licensePlate.toLowerCase().includes(q) ||
+          p.defaultSize.toLowerCase().includes(q) ||
+          (cleanNums.length >= 3 && p.phone.replace(/[^0-9]/g, '').includes(cleanNums))
+        );
+      });
+    }
+    return profiles;
+  }, [bookings, crmSearchTerm]);
+
+  // Studio Multi-Scale Reports (Daily, Monthly, Yearly)
+  const dailyReport = useMemo(() => {
+    return generateDailyReportSummary(reportSelectedDate, bookings);
+  }, [reportSelectedDate, bookings]);
+
+  const monthlyReport = useMemo(() => {
+    return generateMonthlyReportSummary(reportSelectedMonth, bookings);
+  }, [reportSelectedMonth, bookings]);
+
+  const yearlyReport = useMemo(() => {
+    return generateYearlyReportSummary(reportSelectedYear, bookings);
+  }, [reportSelectedYear, bookings]);
+
+  // Export Handlers (Excel CSV, Google Sheets TSV, Daily PDF)
+  const handleExportCsv = (type: 'daily' | 'monthly' | 'yearly') => {
+    let targetBookings: BookingRecord[] = [];
+    let filename = '';
+    if (type === 'daily') {
+      targetBookings = dailyReport.bookings;
+      filename = `Autoboutique_Daily_Report_${reportSelectedDate}.csv`;
+    } else if (type === 'monthly') {
+      targetBookings = monthlyReport.bookings;
+      filename = `Autoboutique_Monthly_Report_${reportSelectedMonth}.csv`;
+    } else {
+      targetBookings = yearlyReport.bookings;
+      filename = `Autoboutique_Yearly_Report_${reportSelectedYear}.csv`;
+    }
+
+    const csvStr = formatBookingsToCsv(targetBookings);
+    const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(isTh ? `📊 ส่งออกไฟล์ Excel (.CSV) สำเร็จแล้ว!` : `Exported CSV successfully!`, 3000);
+  };
+
+  const handleCopyTsvForGoogleSheets = (type: 'daily' | 'monthly' | 'yearly') => {
+    let targetBookings: BookingRecord[] = [];
+    if (type === 'daily') targetBookings = dailyReport.bookings;
+    else if (type === 'monthly') targetBookings = monthlyReport.bookings;
+    else targetBookings = yearlyReport.bookings;
+
+    const tsvStr = formatBookingsToTsv(targetBookings);
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(tsvStr).then(() => {
+        showToast(
+          isTh
+            ? '📋 คัดลอกตารางข้อมูลแล้ว! สามารถเปิด Google Sheets แล้วกด Ctrl+V (วาง) ได้ทันที'
+            : 'Copied table! Open Google Sheets and press Ctrl+V to paste.',
+          4000
+        );
+      });
+    }
+  };
+
+  const handlePrintDailyPdf = () => {
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  };
 
   // Active Vehicle in Live Tracker
   const activeCarRecord = useMemo(() => {
@@ -1632,7 +1812,7 @@ export default function AutoboutiqueApp() {
               })()
             )}
 
-            {/* STEP 1: SERVICE HERO & STUDIO ADD-ONS */}
+            {/* STEP 1: SERVICE HERO & VEHICLE SIZE MATRIX */}
             <section className="luxe-panel rounded-2xl p-4 md:p-6 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
                 <div>
@@ -1641,16 +1821,16 @@ export default function AutoboutiqueApp() {
                       className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 !text-white active-white-text uppercase tracking-wider shadow-sm"
                       style={{ color: '#FFFFFF' }}
                     >
-                      STUDIO BASE
+                      STUDIO DETAILING
                     </span>
                     <h3 className="text-base md:text-lg font-bold text-white">
-                      {isTh ? selectedService.titleTh : selectedService.titleEn}
+                      {isTh ? 'บริการล้างสี ดูดฝุ่นพรีเมียม (Car Wash Only)' : 'Premium Detailing Wash'}
                     </h3>
                   </div>
                   <p className="text-xs text-slate-300 mt-1 max-w-xl">
                     {isTh
-                      ? 'บริการล้างสี ดูดฝุ่น พ่นโฟม pH 7 ทำความสะอาดซุ้มล้อและคราบน้ำมัน ปลอดภัยต่อสีและฟิล์ม PPF ทุกชนิด'
-                      : 'Comprehensive pH 7 active foam wash, wheel barrel detailing, and interior microfiber sanitization.'}
+                      ? 'บริการล้างสี พ่นโฟม pH 7 สลายคราบ ปลอดภัยต่อสีและฟิล์มทุกชนิด พร้อมเช็ดแห้ง เป่าลมไล่น้ำ และดูดฝุ่นภายในห้องโดยสาร'
+                      : 'Comprehensive pH 7 active foam wash, microfiber drying, compressed air blow-out, and cabin vacuuming.'}
                   </p>
                 </div>
                 <div className="text-left sm:text-right shrink-0">
@@ -1658,8 +1838,29 @@ export default function AutoboutiqueApp() {
                     ฿{currentPrice.toLocaleString()}
                   </div>
                   <p className="text-[11px] text-slate-400 font-medium">
-                    {isTh ? 'ราคาเดียวมาตรฐาน (ไม่แบ่งขนาดรถ)' : 'Flat Rate (No Car Size Matrix)'}
+                    {isTh ? `ขนาดรถ: ${selectedCarSize} (${CAR_SIZE_PRICING[selectedCarSize]?.labelTh || ''})` : `Vehicle Size: ${selectedCarSize}`}
                   </p>
+                  {/* Discrete Test Price Switch (฿1 Test Rate) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTestPriceMode((prev) => !prev);
+                      showToast(
+                        !isTestPriceMode
+                          ? '⚡ เปิดโหมดทดสอบระบบ ฿1 เรียบร้อย (สำหรับการทดสอบโอน PromptPay จริง)'
+                          : '✓ กลับสู่ราคามาตรฐานตามขนาดรถเรียบร้อย',
+                        3000
+                      );
+                    }}
+                    className={`mt-1.5 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border transition cursor-pointer font-semibold ${
+                      isTestPriceMode
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-400'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                    }`}
+                  >
+                    <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                    <span>{isTestPriceMode ? 'โหมดทดสอบ: ฿1 ทำงานอยู่' : 'สลับโหมดทดสอบ ฿1'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -1695,78 +1896,84 @@ export default function AutoboutiqueApp() {
                 </div>
               </div>
 
-              {/* Studio Detailing Add-ons */}
+              {/* Dynamic Vehicle Size Matrix (S, M, L, XL, XXL, สเปเชียล) */}
               <div className="space-y-3 pt-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                  <span>{isTh ? 'ตัวเลือกเสริมระดับสตูดิโอ (Studio Detailing Add-ons):' : 'Select Studio Detailing Options:'}</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {SERVICE_SUB_OPTIONS.wash.map((opt) => {
-                    const isSelected = selectedSubOption === opt.id;
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Car className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{isTh ? 'เลือกขนาดรถยนต์ของคุณ (Vehicle Size Matrix):' : 'Select Vehicle Size:'}</span>
+                  </label>
+                  <span className="text-[11px] text-blue-400 font-bold">
+                    {isTh ? 'ราคาเปลี่ยนแปลงตามขนาดรถทันที' : 'Price updates in real-time'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {(['S', 'M', 'L', 'XL', 'XXL', 'สเปเชียล'] as CarSize[]).map((szKey) => {
+                    const szInfo = CAR_SIZE_PRICING[szKey];
+                    const isSelected = selectedCarSize === szKey;
+                    const displayAmt = isTestPriceMode ? 1 : szInfo.price;
+
                     return (
                       <button
-                        key={opt.id}
+                        key={szKey}
                         type="button"
-                        onClick={() => setSelectedSubOption(opt.id)}
-                        className={`p-3.5 rounded-xl border-2 text-left transition flex items-center justify-between gap-3 ${
+                        onClick={() => setSelectedCarSize(szKey)}
+                        className={`p-3.5 rounded-xl border-2 text-left transition flex items-center justify-between gap-3 cursor-pointer ${
                           isSelected
                             ? theme === 'light'
-                              ? 'bg-blue-50 border-blue-600 shadow-md text-blue-950'
-                              : 'bg-blue-950/80 border-blue-400 shadow-lg text-white'
+                              ? 'bg-blue-50 border-blue-600 shadow-md text-blue-950 ring-2 ring-blue-500/30'
+                              : 'bg-blue-950/80 border-blue-400 shadow-lg text-white ring-2 ring-blue-500/40'
                             : theme === 'light'
-                              ? 'bg-white border-slate-300 hover:border-slate-400 text-slate-800 shadow-sm'
-                              : 'bg-slate-900/90 border-slate-700 hover:border-slate-500 text-slate-100'
+                            ? 'bg-white border-slate-300 hover:border-slate-400 text-slate-800 shadow-sm'
+                            : 'bg-slate-900/90 border-slate-700 hover:border-slate-500 text-slate-100'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div
-                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 font-bold text-[11px] ${
                               isSelected
-                                ? 'border-blue-600 bg-blue-600 text-white active-white-text'
+                                ? 'border-blue-500 bg-blue-600 text-white active-white-text shadow-md'
                                 : theme === 'light'
-                                ? 'border-slate-400 bg-slate-100'
-                                : 'border-slate-600 bg-slate-800'
+                                ? 'border-slate-400 bg-slate-100 text-slate-600'
+                                : 'border-slate-600 bg-slate-800 text-slate-300'
                             }`}
                           >
-                            {isSelected && <CheckCheck className="w-3 h-3 text-white active-white-text" />}
+                            {szKey === 'สเปเชียล' ? 'SP' : szKey}
                           </div>
                           <div className="truncate">
-                            <p
-                              className={`text-xs font-bold truncate ${
-                                isSelected
-                                  ? theme === 'light'
-                                    ? 'text-blue-950 font-bold'
-                                    : 'text-white font-bold'
-                                  : theme === 'light'
-                                  ? 'text-slate-900 font-bold'
-                                  : 'text-slate-100 font-bold'
-                              }`}
-                            >
-                              {isTh ? opt.labelTh : opt.labelEn}
-                            </p>
-                            <p
-                              className={`text-[10px] mt-0.5 font-medium ${
-                                theme === 'light' ? 'text-slate-600' : 'text-slate-400'
-                              }`}
-                            >
-                              {opt.addPrice > 0 ? `+฿${opt.addPrice} บาท` : isTh ? 'รวมในแพ็กเกจแล้ว' : 'Included in Base'}
+                            <div className="flex items-center gap-1.5">
+                              <p className={`text-xs font-bold ${
+                                isSelected ? (theme === 'light' ? 'text-blue-950 font-black' : 'text-white font-extrabold') : ''
+                              }`}>
+                                {isTh ? szInfo.labelTh : szInfo.labelEn}
+                              </p>
+                              {szKey === 'สเปเชียล' && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                                  Supercar
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                              {szInfo.exampleCars}
                             </p>
                           </div>
                         </div>
-                        <span
-                          className={`text-xs font-bold shrink-0 ${
-                            isSelected
-                              ? theme === 'light'
-                                ? 'text-blue-700'
-                                : 'text-blue-300'
-                              : theme === 'light'
-                              ? 'text-blue-600'
-                              : 'text-blue-400'
-                          }`}
-                        >
-                          {opt.addPrice > 0 ? `+฿${opt.addPrice}` : '฿0'}
-                        </span>
+                        <div className="text-right shrink-0">
+                          <span
+                            className={`text-sm font-black font-sans ${
+                              isSelected
+                                ? theme === 'light'
+                                  ? 'text-blue-700'
+                                  : 'text-blue-300'
+                                : theme === 'light'
+                                ? 'text-slate-800'
+                                : 'text-slate-200'
+                            }`}
+                          >
+                            ฿{displayAmt.toLocaleString()}
+                          </span>
+                        </div>
                       </button>
                     );
                   })}
@@ -2039,16 +2246,20 @@ export default function AutoboutiqueApp() {
                 <div className="flex items-center gap-2">
                   <Car className="w-4 h-4 text-blue-400" />
                   <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider">
-                    {isTh ? 'ข้อมูลลูกค้าและรถยนต์' : 'Client & Vehicle Profile'}
+                    {isTh ? 'ข้อมูลลูกค้าและรถยนต์ (Client & Vehicle Profile)' : 'Client & Vehicle Profile'}
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    setFormName('คุณปิยวัฒน์ (ลูกค้า VIP)');
-                    setFormPhone('066 109 8306');
-                    setFormCar('Porsche Cayenne 9กก 8899 ภูเก็ต');
-                    showToast(isTh ? '⚡ กรอกข้อมูลทดสอบด่วนเรียบร้อย' : '⚡ Test data auto-filled', 2500);
+                    setFormName('คุณกรกนก สุวรรณฉัตร');
+                    setFormPhone('091-036-2546');
+                    setFormCarModel('Porsche 911 GT3 RS');
+                    setFormCarColor('เหลือง Racing Yellow');
+                    setFormLicensePlate('111 ภูเก็ต');
+                    setFormCar('Porsche 911 GT3 RS (เหลือง Racing Yellow) 111 ภูเก็ต');
+                    setSelectedCarSize('สเปเชียล');
+                    showToast(isTh ? '⚡ กรอกข้อมูลทดสอบด่วนเรียบร้อย (คุณกรกนก • Porsche 911)' : '⚡ Test data auto-filled', 2500);
                   }}
                   className="text-[11px] font-semibold text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:underline flex items-center gap-1 transition"
                   title="คลิกเพื่อกรอกข้อมูลตัวอย่างสำหรับทดสอบระบบทันที"
@@ -2059,10 +2270,10 @@ export default function AutoboutiqueApp() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                {/* Client Full Name */}
+                {/* 1. Client Full Name */}
                 <div className="space-y-1.5">
                   <label className={`font-semibold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
-                    {isTh ? 'ชื่อ-นามสกุล ผู้ติดต่อ' : 'Client Full Name'}:
+                    {isTh ? '1. ชื่อ-นามสกุล ผู้ติดต่อ' : 'Client Full Name'}:
                   </label>
                   <input
                     type="text"
@@ -2074,11 +2285,11 @@ export default function AutoboutiqueApp() {
                   />
                 </div>
 
-                {/* Mobile Number with Auto-formatting and Live Validation */}
+                {/* 2. Mobile Phone Number */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className={`font-semibold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
-                      {isTh ? 'เบอร์โทรศัพท์มือถือ' : 'Mobile Phone'}:
+                      {isTh ? '2. เบอร์โทรศัพท์มือถือ' : 'Mobile Phone'}:
                     </label>
                     {formPhone && (
                       <span className={`text-[10px] font-bold flex items-center gap-1 ${
@@ -2099,18 +2310,62 @@ export default function AutoboutiqueApp() {
                   />
                 </div>
 
-                {/* Vehicle Model & License Plate */}
-                <div className="space-y-1.5 sm:col-span-2">
+                {/* 3. Vehicle Model (รุ่นรถ) */}
+                <div className="space-y-1.5">
                   <label className={`font-semibold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
-                    {isTh ? 'ยี่ห้อ รุ่น และทะเบียนรถยนต์' : 'Vehicle Model & License Plate'}:
+                    {isTh ? '3. รุ่นรถยนต์ (Car Model)' : 'Vehicle Model'}:
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder={isTh ? 'ระบุยี่ห้อ รุ่น และเลขทะเบียน (เช่น Honda Civic กข 1234 ภูเก็ต)' : 'e.g. Honda Civic (1กข 1234 Phuket)'}
-                    value={formCar}
-                    onChange={(e) => setFormCar(e.target.value)}
+                    placeholder={isTh ? 'เช่น Porsche 911 GT3, Toyota Alphard, Civic' : 'e.g. Porsche 911, Alphard'}
+                    value={formCarModel}
+                    onChange={(e) => {
+                      setFormCarModel(e.target.value);
+                      setFormCar(`${e.target.value} ${formCarColor ? `(${formCarColor})` : ''} ${formLicensePlate}`.trim());
+                    }}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 transition font-medium"
+                  />
+                </div>
+
+                {/* 4. Vehicle Color (สีรถ) */}
+                <div className="space-y-1.5">
+                  <label className={`font-semibold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
+                    {isTh ? '4. สีรถยนต์ (Car Color)' : 'Vehicle Color'}:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isTh ? 'เช่น ขาวมุก, ดำเงา, เหลือง, แดง, เทา' : 'e.g. Pearl White, Jet Black'}
+                    value={formCarColor}
+                    onChange={(e) => {
+                      setFormCarColor(e.target.value);
+                      setFormCar(`${formCarModel} ${e.target.value ? `(${e.target.value})` : ''} ${formLicensePlate}`.trim());
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 transition font-medium"
+                  />
+                </div>
+
+                {/* 5. License Plate (ทะเบียนรถ) */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className={`font-semibold ${theme === 'light' ? 'text-slate-800' : 'text-slate-300'}`}>
+                      {isTh ? '5. ทะเบียนรถยนต์ (License Plate)' : 'License Plate'}:
+                    </label>
+                    <span className="text-[10px] text-blue-500 font-semibold">
+                      {isTh ? `ขนาดที่เลือก: ${selectedCarSize} (${CAR_SIZE_PRICING[selectedCarSize]?.labelTh})` : `Size: ${selectedCarSize}`}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isTh ? 'เช่น 111 ภูเก็ต, กข 8888 ภูเก็ต, 3ขข 1234 กทม.' : 'e.g. 111 Phuket, 9กก 8899'}
+                    value={formLicensePlate}
+                    onChange={(e) => {
+                      setFormLicensePlate(e.target.value);
+                      setFormCar(`${formCarModel} ${formCarColor ? `(${formCarColor})` : ''} ${e.target.value}`.trim());
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 transition font-medium font-mono"
                   />
                 </div>
 
@@ -2122,7 +2377,7 @@ export default function AutoboutiqueApp() {
                       <span>{isTh ? 'LINE User ID หรือ LINE ID' : 'LINE User ID'}:</span>
                     </label>
                     <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                      {isTh ? '✨ ไม่บังคับ (สำหรับรับแจ้งเตือนสดเข้า LINE ทุกขั้นตอน)' : 'Optional for Live Alerts'}
+                      {isTh ? '✨ สำหรับรับแจ้งเตือนสดเข้า LINE (กำลังดำเนินการ / รถเสร็จแล้ว)' : 'Optional for Live Alerts'}
                     </span>
                   </div>
                   <input
@@ -2134,7 +2389,7 @@ export default function AutoboutiqueApp() {
                   />
                 </div>
 
-                {/* Studio Location & Arrival Advisory (Replaced fake delivery with authentic studio arrival notice) */}
+                {/* Studio Location & Arrival Advisory */}
                 <div className="sm:col-span-2 pt-1">
                   <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs transition ${
                     theme === 'light'
@@ -2488,134 +2743,92 @@ export default function AutoboutiqueApp() {
                     </div>
                   </div>
 
-                  {/* 5-Stage Visual Progress Bar */}
-                  <div className="space-y-2">
+                  {/* Simplified 2-Stage Visual Progress Bar (กำลังดำเนินการ / รถเสร็จแล้ว) */}
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400 font-medium">
-                        {isTh ? 'ขั้นตอนปัจจุบัน' : 'Current Stage'}: <strong className={theme === 'light' ? 'text-slate-900 font-bold' : 'text-white font-bold'}>{activeStageInfo.titleTh}</strong>
+                        {isTh ? 'สถานะปัจจุบัน' : 'Current Status'}:{' '}
+                        <strong className={`font-bold ${
+                          normalizeWorkStatus(activeCarRecord.status) === 'completed' ? 'text-emerald-400' : 'text-blue-400'
+                        }`}>
+                          {getStatusLabel(activeCarRecord.status, isTh)}
+                        </strong>
                       </span>
-                      <span className="font-bold text-blue-500">{activeStageNumber} / 5</span>
+                      <span className="font-bold text-blue-400">
+                        {normalizeWorkStatus(activeCarRecord.status) === 'completed' ? 'ขั้นที่ 2 / 2 (100%)' : 'ขั้นที่ 1 / 2 (50%)'}
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {[1, 2, 3, 4, 5].map((st) => (
-                        <div
-                          key={st}
-                          className={`h-2 rounded-full transition-all duration-500 ${
-                            st <= activeStageNumber
-                              ? 'bg-gradient-to-r from-blue-600 to-blue-400 shadow-sm shadow-blue-500/50'
-                              : theme === 'light'
-                                ? 'bg-slate-200'
-                                : 'bg-slate-800'
-                          }`}
-                        />
-                      ))}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div
+                        className={`h-3 rounded-full transition-all duration-500 ${
+                          'bg-gradient-to-r from-blue-600 to-blue-400 shadow-md shadow-blue-500/50'
+                        }`}
+                      />
+                      <div
+                        className={`h-3 rounded-full transition-all duration-500 ${
+                          normalizeWorkStatus(activeCarRecord.status) === 'completed'
+                            ? 'bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-md shadow-emerald-500/50'
+                            : theme === 'light' ? 'bg-slate-200' : 'bg-slate-800'
+                        }`}
+                      />
                     </div>
                   </div>
 
-                  {/* 5-Stage Live Detailing Process Cards (Replaced stock photo with intuitive step breakdown) */}
+                  {/* 2 Core Stages Breakdown */}
                   <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between text-xs pb-1">
-                      <span className="text-slate-400 font-medium">
-                        {isTh ? 'ลำดับขั้นตอนการดูแลรถของคุณ' : 'Vehicle Detailing Workflow'}
-                      </span>
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                        activeStageNumber === 5
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                          : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Stage 1: กำลังดำเนินการ */}
+                      <div className={`p-4 rounded-xl border transition ${
+                        normalizeWorkStatus(activeCarRecord.status) === 'in_progress'
+                          ? 'bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/30'
+                          : normalizeWorkStatus(activeCarRecord.status) === 'completed'
+                          ? 'bg-slate-900/60 border-emerald-800/80'
+                          : 'bg-slate-900/30 border-slate-800 opacity-60'
                       }`}>
-                        {activeStageNumber === 5
-                          ? (isTh ? '✨ เสร็จสมบูรณ์ พร้อมส่งมอบ' : '✨ Detailing Complete')
-                          : (isTh ? `⚡ กำลังทำขั้นตอนที่ ${activeStageNumber} จาก 5` : `⚡ Stage ${activeStageNumber} of 5 in progress`)}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-2">
-                      {[1, 2, 3, 4, 5].map((stNum) => {
-                        const stInfo = getStageDetails(stNum, isTh);
-                        const isDone = stNum < activeStageNumber;
-                        const isCurrent = stNum === activeStageNumber;
-
-                        return (
-                          <div
-                            key={stNum}
-                            className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all ${
-                              isCurrent
-                                ? theme === 'light'
-                                  ? 'bg-blue-50/90 border-blue-500 shadow-md ring-2 ring-blue-500/20'
-                                  : 'bg-blue-950/50 border-blue-500/70 shadow-lg shadow-blue-500/10 ring-2 ring-blue-500/30'
-                                : isDone
-                                ? theme === 'light'
-                                  ? 'bg-slate-50/80 border-slate-200 text-slate-700'
-                                  : 'bg-slate-900/40 border-slate-800 text-slate-300'
-                                : theme === 'light'
-                                ? 'bg-white/40 border-slate-200/60 text-slate-400 opacity-60'
-                                : 'bg-slate-950/30 border-slate-800/40 text-slate-500 opacity-50'
-                            }`}
-                          >
-                            {/* Step Number or Checkmark Circle */}
-                            <div className="shrink-0 mt-0.5">
-                              {isDone ? (
-                                <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/50 flex items-center justify-center">
-                                  <CheckCircle2 className="w-4 h-4" />
-                                </div>
-                              ) : isCurrent ? (
-                                <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-blue-600/50 animate-pulse">
-                                  {stNum}
-                                </div>
-                              ) : (
-                                <div className={`w-6 h-6 rounded-full border flex items-center justify-center font-mono text-xs font-semibold ${
-                                  theme === 'light' ? 'border-slate-300 text-slate-400 bg-white' : 'border-slate-700 text-slate-500 bg-slate-900'
-                                }`}>
-                                  {stNum}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Step Title & Details */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center justify-between gap-1">
-                                <h4 className={`text-xs sm:text-sm font-bold ${
-                                  isCurrent
-                                    ? theme === 'light' ? 'text-blue-900 font-black' : 'text-blue-300 font-black'
-                                    : isDone
-                                    ? theme === 'light' ? 'text-slate-800' : 'text-slate-200'
-                                    : theme === 'light' ? 'text-slate-400' : 'text-slate-500'
-                                }`}>
-                                  {isTh ? stInfo.titleTh : stInfo.titleEn}
-                                </h4>
-
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                  isCurrent
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : isDone
-                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                    : 'text-slate-400'
-                                }`}>
-                                  {isCurrent
-                                    ? (isTh ? '⚡ กำลังดำเนินการ' : 'In Progress')
-                                    : isDone
-                                    ? (isTh ? '✓ เสร็จแล้ว' : 'Done')
-                                    : (isTh ? 'รอดำเนินการ' : 'Pending')}
-                                </span>
-                              </div>
-
-                              <p className={`text-[11px] mt-1 leading-relaxed ${
-                                isCurrent
-                                  ? theme === 'light' ? 'text-slate-700' : 'text-slate-300'
-                                  : isDone
-                                  ? theme === 'light' ? 'text-slate-500' : 'text-slate-400'
-                                  : theme === 'light' ? 'text-slate-400' : 'text-slate-600'
-                              }`}>
-                                {isTh ? stInfo.descTh : stInfo.descEn}
-                              </p>
-                            </div>
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                            normalizeWorkStatus(activeCarRecord.status) === 'completed'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-blue-600 text-white animate-pulse'
+                          }`}>
+                            {normalizeWorkStatus(activeCarRecord.status) === 'completed' ? '✓' : '1'}
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-white">1. กำลังดำเนินการ</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              เจ้าหน้าที่กำลังทำความสะอาด ฉีดโฟม ล้างสี เป่าลมไล่น้ำ และดูดฝุ่นภายใน
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
-                    {/* Actions: View VIP Receipt & Google Calendar */}
+                      {/* Stage 2: รถเสร็จแล้ว */}
+                      <div className={`p-4 rounded-xl border transition ${
+                        normalizeWorkStatus(activeCarRecord.status) === 'completed'
+                          ? 'bg-emerald-950/60 border-emerald-500 ring-2 ring-emerald-500/30'
+                          : 'bg-slate-900/30 border-slate-800 opacity-60'
+                      }`}>
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                            normalizeWorkStatus(activeCarRecord.status) === 'completed'
+                              ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/50'
+                              : 'bg-slate-800 text-slate-500'
+                          }`}>
+                            {normalizeWorkStatus(activeCarRecord.status) === 'completed' ? '✓' : '2'}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-white">2. รถเสร็จแล้ว พร้อมรับรถ</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              รถสะอาดเงางาม 100% ผ่านการตรวจ QC เรียบร้อย พร้อมให้ท่านมารับรถได้ทันที
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions: View VIP Receipt & Google Calendar */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
                       <div className="flex items-center gap-2">
                         <button
@@ -2660,7 +2873,6 @@ export default function AutoboutiqueApp() {
                     </div>
                   </div>
                 </div>
-              </div>
             ) : (
               <div className="p-8 rounded-2xl bg-slate-900/40 border border-slate-800 text-center space-y-2">
                 <Car className="w-8 h-8 text-slate-600 mx-auto" />
@@ -2744,7 +2956,7 @@ export default function AutoboutiqueApp() {
                 <div className="text-lg md:text-xl font-bold text-white font-sans">
                   {adminMetrics.inProgress} <span className="text-xs text-slate-400 font-normal">{isTh ? 'ช่อง' : 'Bays'}</span>
                 </div>
-                <p className="text-[10px] text-slate-500">{isTh ? 'กำลังทำงานในขั้นตอน 1-4' : 'Active detailing'}</p>
+                <p className="text-[10px] text-slate-500">{isTh ? 'กำลังทำงานในช่องบริการ' : 'Active detailing'}</p>
               </div>
 
               <div className="luxe-panel p-3.5 rounded-xl space-y-1">
@@ -2761,235 +2973,805 @@ export default function AutoboutiqueApp() {
               </div>
             </div>
 
-            {/* Filter Bar: Scope Selector (All vs Today vs Custom Date) + Universal Search */}
-            <div className="flex flex-col gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                {/* Scope Buttons */}
-                <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setAdminDateScope('all')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
-                      adminDateScope === 'all'
-                        ? 'bg-blue-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <CalendarIcon className="w-3.5 h-3.5 text-blue-300" />
-                    <span>{isTh ? '🌐 ดูงานทั้งหมด (ทุกวัน)' : 'All Bookings'}</span>
-                    <span className="ml-1 px-1.5 py-0.2 rounded-full bg-blue-900/80 text-[10px] text-blue-200 font-mono">
-                      {bookings.filter((b) => b.status !== 'cancelled').length}
+            {/* Executive Sub-Navigation Tabs: Queue vs Customers CRM vs Reports */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
+              <button
+                type="button"
+                onClick={() => setAdminActiveTab('queue')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  adminActiveTab === 'queue'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Car className="w-4 h-4" />
+                <span>{isTh ? 'คิวงานบริการสตูดิโอ (Work Orders)' : 'Service Queue'}</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-950 text-blue-200 border border-blue-800 font-mono">
+                  {bookings.filter((b) => b.status !== 'cancelled').length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAdminActiveTab('customers')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  adminActiveTab === 'customers'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>{isTh ? 'ฐานข้อมูลลูกค้า CRM (Customer Directory)' : 'Customer Directory'}</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-950 text-blue-200 border border-blue-800 font-mono">
+                  {customerProfiles.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAdminActiveTab('reports')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  adminActiveTab === 'reports'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-900/40'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+                <span>{isTh ? 'ศูนย์รายงานสตูดิโอ (Reports Center)' : 'Studio Reports'}</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-950 text-emerald-200 border border-emerald-800 font-semibold">
+                  {isTh ? 'รายวัน/เดือน/ปี' : 'Daily/Mo/Yr'}
+                </span>
+              </button>
+            </div>
+
+            {/* TAB CONTENT 1: SERVICE QUEUE (คิวงานบริการ) */}
+            {adminActiveTab === 'queue' && (
+              <div className="space-y-4">
+                {/* Filter Bar: Scope Selector + Car Size Pills + Detailed Search */}
+                <div className="flex flex-col gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    {/* Scope Buttons */}
+                    <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setAdminDateScope('all')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                          adminDateScope === 'all' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <CalendarIcon className="w-3.5 h-3.5 text-blue-300" />
+                        <span>{isTh ? '🌐 ดูงานทั้งหมด (ทุกวัน)' : 'All Bookings'}</span>
+                        <span className="ml-1 px-1.5 py-0.2 rounded-full bg-blue-900/80 text-[10px] text-blue-200 font-mono">
+                          {bookings.filter((b) => b.status !== 'cancelled').length}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAdminDateScope('today')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                          adminDateScope === 'today' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Clock className="w-3.5 h-3.5 text-amber-300" />
+                        <span>{isTh ? '📅 วันนี้' : 'Today'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAdminDateScope('custom')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                          adminDateScope === 'custom' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span>{isTh ? '📆 ระบุวัน' : 'Pick Date'}</span>
+                      </button>
+                    </div>
+
+                    {/* Custom Date Picker */}
+                    {adminDateScope === 'custom' && (
+                      <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-lg border border-blue-500/50 animate-fade-in">
+                        <input
+                          type="date"
+                          value={adminSelectedDate}
+                          onChange={(e) => setAdminSelectedDate(e.target.value)}
+                          className="bg-transparent text-xs text-white outline-none"
+                        />
+                        <span className="text-xs text-blue-300 font-medium">
+                          {formatBookingDate(adminSelectedDate, lang)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Universal Detailed Search across all dates & attributes */}
+                    <div className="relative flex-1 min-w-[220px]">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={adminSearchTerm}
+                        onChange={(e) => setAdminSearchTerm(e.target.value)}
+                        placeholder={isTh ? 'ค้นหาคิวงาน, ทะเบียน, รุ่นรถ, สีรถ, ไซส์ (S/M/L/XL/XXL/สเปเชียล)...' : 'Search plate, model, color, size...'}
+                        className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500"
+                      />
+                      {adminSearchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => setAdminSearchTerm('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Vehicle Size Filter Pills (S, M, L, XL, XXL, สเปเชียล) */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto text-xs pt-1.5 border-t border-slate-800/60">
+                    <span className="text-[11px] text-slate-400 font-semibold mr-1 shrink-0 flex items-center gap-1">
+                      <Car className="w-3 h-3 text-blue-400" />
+                      <span>{isTh ? 'กรองตามขนาดรถ:' : 'Filter Size:'}</span>
                     </span>
-                  </button>
+                    {(['all', 'S', 'M', 'L', 'XL', 'XXL', 'สเปเชียล'] as ('all' | CarSize)[]).map((sz) => {
+                      const count = sz === 'all'
+                        ? bookings.filter((b) => b.status !== 'cancelled').length
+                        : bookings.filter((b) => b.status !== 'cancelled' && (b.size || 'M') === sz).length;
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => setAdminSizeFilter(sz)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition shrink-0 flex items-center gap-1 cursor-pointer ${
+                            adminSizeFilter === sz
+                              ? 'bg-blue-600 text-white shadow'
+                              : 'bg-slate-950 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <span>{sz === 'all' ? (isTh ? 'ทุกขนาด' : 'All Sizes') : sz}</span>
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-slate-900 border border-slate-800 text-blue-300 font-mono">
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setAdminDateScope('today')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
-                      adminDateScope === 'today'
-                        ? 'bg-blue-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5 text-amber-300" />
-                    <span>{isTh ? '📅 วันนี้' : 'Today'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setAdminDateScope('custom')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
-                      adminDateScope === 'custom'
-                        ? 'bg-blue-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <span>{isTh ? '📆 ระบุวัน' : 'Pick Date'}</span>
-                  </button>
+                  {/* Status Filter Chips */}
+                  <div className="flex items-center gap-1 overflow-x-auto text-xs pt-1 border-t border-slate-800/40">
+                    <span className="text-[11px] text-slate-500 mr-1.5 shrink-0">{isTh ? 'สถานะงาน:' : 'Status:'}</span>
+                    {(['all', 'inprogress', 'ready', 'cancelled'] as const).map((fil) => (
+                      <button
+                        key={fil}
+                        type="button"
+                        onClick={() => setAdminBookingFilter(fil)}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition shrink-0 cursor-pointer ${
+                          adminBookingFilter === fil
+                            ? 'bg-blue-600 text-white shadow'
+                            : 'bg-slate-950 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {fil === 'all'
+                          ? isTh ? 'ทั้งหมด' : 'All'
+                          : fil === 'inprogress'
+                          ? isTh ? '🚗 กำลังดำเนินการ' : 'In Progress'
+                          : fil === 'ready'
+                          ? isTh ? '✨ รถเสร็จแล้ว' : 'Ready'
+                          : isTh ? 'ยกเลิกแล้ว' : 'Cancelled'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Custom Date Picker (when custom scope active) */}
-                {adminDateScope === 'custom' && (
-                  <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-lg border border-blue-500/50 animate-fade-in">
-                    <input
-                      type="date"
-                      value={adminSelectedDate}
-                      onChange={(e) => setAdminSelectedDate(e.target.value)}
-                      className="bg-transparent text-xs text-white outline-none"
-                    />
-                    <span className="text-xs text-blue-300 font-medium">
-                      {formatBookingDate(adminSelectedDate, lang)}
+                {/* Service Queue Table */}
+                <div className="luxe-panel rounded-2xl overflow-hidden border border-slate-800">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="py-3 px-3.5">{isTh ? 'วันที่ & เวลา' : 'Date & Time'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'ทะเบียน / รถยนต์ / ขนาด' : 'Vehicle & Size'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'ลูกค้า / ติดต่อ' : 'Client'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'ยอดชำระ' : 'Amount'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'สลิปโอน' : 'Slip'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'สถานะงาน' : 'Stage'}</th>
+                          <th className="py-3 px-3.5 text-right">{isTh ? 'จัดการ' : 'Action'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {adminFilteredBookings.map((b, bIdx) => (
+                          <tr key={`${b.id}-${b.createdAt || bIdx}`} className="hover:bg-slate-900/40 transition">
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-white text-xs">{formatBookingDate(b.date, lang)}</span>
+                                {b.date === '2026-11-25' && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-900/60 text-blue-300 border border-blue-700/50 font-semibold">
+                                    {isTh ? 'วันนี้' : 'Today'}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-blue-400 font-mono font-bold mt-0.5">{b.timeSlot} น.</p>
+                            </td>
+                            <td className="py-3 px-3.5">
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-bold text-white whitespace-nowrap">{b.carInfo}</p>
+                                <span className="px-1.5 py-0.2 rounded text-[9px] bg-blue-900/50 text-blue-300 border border-blue-700/60 font-bold font-mono">
+                                  {b.size || 'M'}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-blue-400 font-mono">{b.id}</p>
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <p className="text-slate-200 font-medium">{b.customerName}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{b.phone}</p>
+                              {b.lineUserId ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setAdminLineModalBooking(b)}
+                                  title={isTh ? 'คลิกเพื่อจัดการการแจ้งเตือน LINE' : 'Click to manage LINE notification'}
+                                  className="inline-flex items-center gap-1 text-[9px] text-emerald-400 font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 px-1.5 py-0.5 rounded border border-emerald-800/80 mt-0.5 transition cursor-pointer"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  <span>LINE ผูกแล้ว ({b.lineUserId.slice(0, 5)}...)</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setAdminLineModalBooking(b)}
+                                  title={isTh ? 'คลิกเพื่อผูก LINE ลูกค้าหรือทดสอบส่งแจ้งเตือน' : 'Click to link customer LINE'}
+                                  className="inline-flex items-center gap-1 text-[9px] text-amber-300 hover:text-white bg-amber-950/50 hover:bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-800/60 mt-0.5 transition cursor-pointer"
+                                >
+                                  <MessageCircle className="w-2.5 h-2.5 text-amber-400" />
+                                  <span>LINE ยังไม่ผูก (คลิกจัดการ)</span>
+                                </button>
+                              )}
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <span className="font-bold text-emerald-400">
+                                {b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${(b.paidAmount || 0).toLocaleString()}`}
+                              </span>
+                              <span className="text-[10px] text-slate-400 block font-mono">
+                                {b.paymentMethod === 'package' ? (b.usedPackageId ? `Pass #${b.usedPackageId}` : 'สิทธิ์ฟรี') : (b.paymentMethod || 'PromptPay')}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              {b.paymentSlipUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewSlipModalUrl(b.paymentSlipUrl || null)}
+                                  className="px-2 py-1 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300 hover:text-white text-[10px] font-semibold transition cursor-pointer"
+                                >
+                                  {isTh ? '🔍 ดูสลิป' : 'View Slip'}
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-500">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <select
+                                value={normalizeWorkStatus(b.status) === 'completed' ? 'completed' : 'in_progress'}
+                                onChange={(e) => handleUpdateBookingStage(b.id, e.target.value as any)}
+                                className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-white outline-none focus:border-blue-500 font-semibold cursor-pointer"
+                              >
+                                <option value="in_progress">{isTh ? '🚗 กำลังดำเนินการ' : 'In Progress'}</option>
+                                <option value="completed">{isTh ? '✨ รถเสร็จแล้ว' : 'Ready / Finished'}</option>
+                                {normalizeWorkStatus(b.status) === 'cancelled' && (
+                                  <option value="cancelled" disabled>{isTh ? '❌ ยกเลิกแล้ว' : 'Cancelled'}</option>
+                                )}
+                              </select>
+                            </td>
+                            <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => setCancelModalBooking(b)}
+                                className="p-1 rounded text-slate-500 hover:text-red-400 transition"
+                                title="Cancel Booking"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {adminFilteredBookings.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
+                              {isTh ? 'ไม่พบคิวการจองในเงื่อนไขนี้' : 'No bookings found'}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT 2: CUSTOMER CRM DIRECTORY (ฐานข้อมูลลูกค้าสตูดิโอ) */}
+            {adminActiveTab === 'customers' && (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-blue-400" />
+                    <span className="text-xs font-bold text-white">
+                      {isTh ? `ลูกค้ารวม ${customerProfiles.length} ราย (แยกลูกค้าประจำและประวัติการใช้จ่ายสะสม)` : `Total ${customerProfiles.length} Clients`}
                     </span>
+                  </div>
+
+                  <div className="relative w-full sm:w-72">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={crmSearchTerm}
+                      onChange={(e) => setCrmSearchTerm(e.target.value)}
+                      placeholder={isTh ? 'ค้นหาชื่อลูกค้า, เบอร์โทร, ทะเบียน, รุ่นรถ...' : 'Search client, phone, plate...'}
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="luxe-panel rounded-2xl overflow-hidden border border-slate-800">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="py-3 px-3.5">{isTh ? 'รหัส & ชื่อลูกค้า' : 'Client Profile'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'เบอร์โทรศัพท์' : 'Phone'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'รถยนต์ประจำ (รุ่น / สี / ทะเบียน)' : 'Registered Vehicle'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'ขนาดประจำ' : 'Size'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'มารับบริการ' : 'Visits'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'ยอดใช้จ่ายสะสม' : 'Total Spent'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'สถานะ LINE' : 'LINE Status'}</th>
+                          <th className="py-3 px-3.5">{isTh ? 'มาล่าสุด' : 'Last Visit'}</th>
+                          <th className="py-3 px-3.5 text-right">{isTh ? 'นัดหมายด่วน' : 'Action'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {customerProfiles.map((cp) => (
+                          <tr key={cp.id} className="hover:bg-slate-900/40 transition">
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <p className="font-bold text-white text-xs">{cp.customerName}</p>
+                              <span className="text-[10px] text-blue-400 font-mono">{cp.id}</span>
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap font-mono text-slate-300">
+                              {cp.phone}
+                            </td>
+                            <td className="py-3 px-3.5">
+                              <p className="font-semibold text-white whitespace-nowrap">{cp.carModel} ({cp.carColor})</p>
+                              <p className="text-[10px] text-blue-300 font-mono">{cp.licensePlate}</p>
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded text-[10px] bg-blue-900/60 text-blue-300 border border-blue-700/60 font-bold font-mono">
+                                {cp.defaultSize}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-900 border border-slate-700 text-slate-200 font-bold">
+                                {cp.visitCount} {isTh ? 'ครั้ง' : 'visits'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              <span className="font-bold text-emerald-400">
+                                ฿{cp.totalSpent.toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap">
+                              {cp.lineUserId ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                  <span>ผูกแล้ว</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-amber-300 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800">
+                                  <span>ยังไม่ผูก</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3.5 whitespace-nowrap text-slate-300">
+                              {formatBookingDate(cp.lastVisitDate, lang)}
+                            </td>
+                            <td className="py-3 px-3.5 text-right whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormName(cp.customerName);
+                                  setFormPhone(cp.phone);
+                                  setFormCarModel(cp.carModel);
+                                  setFormCarColor(cp.carColor);
+                                  setFormLicensePlate(cp.licensePlate);
+                                  setFormCar(`${cp.carModel} (${cp.carColor}) ${cp.licensePlate}`);
+                                  setSelectedCarSize(cp.defaultSize);
+                                  if (cp.lineUserId) setFormLineUserId(cp.lineUserId);
+                                  setView('booking');
+                                  showToast(isTh ? `⚡ กรอกข้อมูลของ คุณ${cp.customerName} เรียบร้อย กรุณาเลือกวันเวลาที่ต้องการจอง` : 'Client selected', 3000);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold transition cursor-pointer"
+                              >
+                                {isTh ? '⚡ จองคิวให้ลูกค้านี้' : 'Book for Client'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT 3: STUDIO REPORTS CENTER (ศูนย์รายงานสตูดิโอ รายวัน / รายเดือน / รายปี) */}
+            {adminActiveTab === 'reports' && (
+              <div className="space-y-5">
+                {/* Report Type Selector + Quick Action Export Buttons */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow">
+                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setReportType('daily')}
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        reportType === 'daily' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>{isTh ? '📄 รายงานรายวัน' : 'Daily Report'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setReportType('monthly')}
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        reportType === 'monthly' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>{isTh ? '📈 รายงานรายเดือน' : 'Monthly Report'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setReportType('yearly')}
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        reportType === 'yearly' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Table className="w-3.5 h-3.5" />
+                      <span>{isTh ? '🏆 รายงานรายปี' : 'Yearly Report'}</span>
+                    </button>
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {reportType === 'daily' && (
+                      <button
+                        type="button"
+                        onClick={handlePrintDailyPdf}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 cursor-pointer shadow-sm"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-blue-400" />
+                        <span>{isTh ? '📄 พิมพ์ / บันทึก PDF รายวัน' : 'Print PDF'}</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleExportCsv(reportType)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{isTh ? '📊 ส่งออก Excel (.CSV)' : 'Export CSV'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyTsvForGoogleSheets(reportType)}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow cursor-pointer"
+                    >
+                      <ClipboardCopy className="w-3.5 h-3.5" />
+                      <span>{isTh ? '📋 คัดลอกไปวางใน Google Sheets' : 'Copy for Google Sheets'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* VIEW 1: DAILY REPORT */}
+                {reportType === 'daily' && (
+                  <div className="space-y-4">
+                    {/* Date Picker Bar */}
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-400 font-semibold">{isTh ? 'เลือกวันที่ดูรายงาน:' : 'Select Date:'}</span>
+                        <input
+                          type="date"
+                          value={reportSelectedDate}
+                          onChange={(e) => setReportSelectedDate(e.target.value)}
+                          className="bg-slate-950 px-2.5 py-1 rounded-lg border border-blue-500/50 text-xs text-white outline-none"
+                        />
+                        <span className="text-blue-300 font-bold ml-1">
+                          {formatBookingDate(reportSelectedDate, lang)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Daily Summary Cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'รายรับประจำวัน' : 'Daily Revenue'}</span>
+                        <div className="text-xl font-black text-emerald-400 font-sans">
+                          ฿{dailyReport.totalRevenue.toLocaleString()}
+                        </div>
+                        <p className="text-[10px] text-slate-500">{dailyReport.totalCars} {isTh ? 'คันที่เข้ารับบริการ' : 'cars served'}</p>
+                      </div>
+
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'เฉลี่ยต่อคัน' : 'Avg / Car'}</span>
+                        <div className="text-xl font-black text-white font-sans">
+                          ฿{dailyReport.totalCars > 0 ? Math.round(dailyReport.totalRevenue / dailyReport.totalCars).toLocaleString() : '0'}
+                        </div>
+                        <p className="text-[10px] text-slate-500">{isTh ? 'รายรับเฉลี่ยต่อคิว' : 'Average rate'}</p>
+                      </div>
+
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'ล้างเสร็จแล้ว' : 'Completed'}</span>
+                        <div className="text-xl font-black text-blue-400 font-sans">
+                          {dailyReport.completedCars} <span className="text-xs font-normal text-slate-400">{isTh ? 'คัน' : 'cars'}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500">{isTh ? 'ส่งมอบรถเรียบร้อย' : 'Ready'}</p>
+                      </div>
+
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'กำลังล้าง' : 'In Progress'}</span>
+                        <div className="text-xl font-black text-amber-400 font-sans">
+                          {dailyReport.inProgressCars} <span className="text-xs font-normal text-slate-400">{isTh ? 'คัน' : 'cars'}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500">{isTh ? 'อยู่ในช่องล้าง' : 'Active'}</p>
+                      </div>
+
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'การชำระเงิน' : 'Payment Modes'}</span>
+                        <div className="text-sm font-bold text-slate-200 mt-1">
+                          PP: {dailyReport.paymentBreakdown.promptpay.count} • สิทธิ์ฟรี: {dailyReport.paymentBreakdown.package.count}
+                        </div>
+                        <p className="text-[10px] text-slate-500">{isTh ? 'เงินสด' : 'Cash'}: {dailyReport.paymentBreakdown.cash.count}</p>
+                      </div>
+                    </div>
+
+                    {/* Breakdown by Vehicle Size (S, M, L, XL, XXL, สเปเชียล) */}
+                    <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                        <Car className="w-3.5 h-3.5 text-blue-400" />
+                        <span>{isTh ? 'สรุปยอดแยกตามขนาดรถ (Vehicle Size Breakdown):' : 'Size Breakdown:'}</span>
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                        {(['S', 'M', 'L', 'XL', 'XXL', 'สเปเชียล'] as CarSize[]).map((sz) => {
+                          const item = dailyReport.sizeBreakdown[sz];
+                          return (
+                            <div key={sz} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-center">
+                              <span className="text-xs font-bold text-blue-400 font-mono">{sz}</span>
+                              <div className="text-base font-black text-white mt-0.5">{item.count} <span className="text-[10px] text-slate-500 font-normal">คัน</span></div>
+                              <span className="text-[10px] text-emerald-400 font-mono">฿{item.revenue.toLocaleString()}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Printable Daily Log Table */}
+                    <div id="printable-daily-report" className="luxe-panel rounded-2xl overflow-hidden border border-slate-800">
+                      <div className="p-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">
+                          {isTh ? `ตารางบันทึกการล้างรถประจำวัน (${formatBookingDate(reportSelectedDate, lang)})` : 'Daily Car Wash Log'}
+                        </span>
+                        <span className="text-[11px] text-emerald-400 font-bold font-mono">
+                          {dailyReport.bookings.length} {isTh ? 'รายการ' : 'Orders'} • ฿{dailyReport.totalRevenue.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                            <tr>
+                              <th className="py-2.5 px-3">เวลา</th>
+                              <th className="py-2.5 px-3">รหัส</th>
+                              <th className="py-2.5 px-3">รถยนต์ / ทะเบียน</th>
+                              <th className="py-2.5 px-3">ขนาด (Size)</th>
+                              <th className="py-2.5 px-3">ลูกค้า / เบอร์โทร</th>
+                              <th className="py-2.5 px-3">ยอดชำระ</th>
+                              <th className="py-2.5 px-3">วิธีชำระ</th>
+                              <th className="py-2.5 px-3">สถานะ</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {dailyReport.bookings.map((b) => (
+                              <tr key={b.id} className="hover:bg-slate-900/40">
+                                <td className="py-2.5 px-3 font-mono font-bold text-blue-400">{b.timeSlot} น.</td>
+                                <td className="py-2.5 px-3 font-mono text-slate-400">{b.id}</td>
+                                <td className="py-2.5 px-3 font-semibold text-white">{b.carInfo}</td>
+                                <td className="py-2.5 px-3 font-mono text-blue-300 font-bold">{b.size || 'M'}</td>
+                                <td className="py-2.5 px-3 text-slate-300">{b.customerName} ({b.phone})</td>
+                                <td className="py-2.5 px-3 font-bold text-emerald-400">
+                                  {b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${(b.paidAmount || 0).toLocaleString()}`}
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-400">{b.paymentMethod || 'PromptPay'}</td>
+                                <td className="py-2.5 px-3 font-bold text-blue-300">{getStatusLabel(b.status, true)}</td>
+                              </tr>
+                            ))}
+                            {dailyReport.bookings.length === 0 && (
+                              <tr>
+                                <td colSpan={8} className="py-8 text-center text-slate-500">
+                                  ไม่มีรายการบริการในวันนี้
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* Universal Search across all dates */}
-                <div className="relative flex-1 min-w-[220px]">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={adminSearchTerm}
-                    onChange={(e) => setAdminSearchTerm(e.target.value)}
-                    placeholder={isTh ? 'ค้นหาคิวงาน, ทะเบียนรถ, ชื่อลูกค้า, เบอร์โทร...' : 'Search booking ID, plate, name, phone...'}
-                    className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500"
-                  />
-                  {adminSearchTerm && (
-                    <button
-                      type="button"
-                      onClick={() => setAdminSearchTerm('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
+                {/* VIEW 2: MONTHLY REPORT */}
+                {reportType === 'monthly' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-400 font-semibold">{isTh ? 'เลือกเดือนที่ดูรายงาน:' : 'Select Month:'}</span>
+                        <input
+                          type="month"
+                          value={reportSelectedMonth}
+                          onChange={(e) => setReportSelectedMonth(e.target.value)}
+                          className="bg-slate-950 px-2.5 py-1 rounded-lg border border-blue-500/50 text-xs text-white outline-none"
+                        />
+                      </div>
+                    </div>
 
-              {/* Status Filter Chips */}
-              <div className="flex items-center gap-1 overflow-x-auto text-xs pt-1.5 border-t border-slate-800/60">
-                <span className="text-[11px] text-slate-500 mr-1.5 shrink-0">{isTh ? 'สถานะงาน:' : 'Status:'}</span>
-                {(['all', 'pending', 'inprogress', 'ready', 'cancelled'] as const).map((fil) => (
-                  <button
-                    key={fil}
-                    type="button"
-                    onClick={() => setAdminBookingFilter(fil)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition shrink-0 ${
-                      adminBookingFilter === fil
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-950 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {fil === 'all'
-                      ? isTh ? 'ทั้งหมด' : 'All'
-                      : fil === 'pending'
-                      ? isTh ? 'รอยืนยัน' : 'Pending'
-                      : fil === 'inprogress'
-                      ? isTh ? 'กำลังล้าง' : 'In Progress'
-                      : fil === 'ready'
-                      ? isTh ? 'พร้อมส่งมอบ' : 'Ready'
-                      : isTh ? 'ยกเลิก' : 'Cancelled'}
-                  </button>
-                ))}
-              </div>
-            </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'รายรับรวมเดือนนี้' : 'Monthly Revenue'}</span>
+                        <div className="text-xl font-black text-emerald-400 font-sans">
+                          ฿{monthlyReport.totalRevenue.toLocaleString()}
+                        </div>
+                        <p className="text-[10px] text-slate-500">{monthlyReport.totalCars} {isTh ? 'คันทั้งเดือน' : 'total cars'}</p>
+                      </div>
 
-            {/* Admin Bookings Table */}
-            <div className="luxe-panel rounded-2xl overflow-hidden border border-slate-800">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
-                    <tr>
-                      <th className="py-3 px-3.5">{isTh ? 'วันที่ & เวลา' : 'Date & Time'}</th>
-                      <th className="py-3 px-3.5">{isTh ? 'ทะเบียน / รถยนต์' : 'Vehicle'}</th>
-                      <th className="py-3 px-3.5">{isTh ? 'ลูกค้า / ติดต่อ' : 'Client'}</th>
-                      <th className="py-3 px-3.5">{isTh ? 'ยอดชำระ' : 'Amount'}</th>
-                      <th className="py-3 px-3.5">{isTh ? 'สลิปโอน' : 'Slip'}</th>
-                      <th className="py-3 px-3.5">{isTh ? 'สถานะงาน' : 'Stage'}</th>
-                      <th className="py-3 px-3.5 text-right">{isTh ? 'จัดการ' : 'Action'}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {adminFilteredBookings.map((b, bIdx) => (
-                      <tr key={`${b.id}-${b.createdAt || bIdx}`} className="hover:bg-slate-900/40 transition">
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-white text-xs">{formatBookingDate(b.date, lang)}</span>
-                            {b.date === '2026-11-25' && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-900/60 text-blue-300 border border-blue-700/50 font-semibold">
-                                {isTh ? 'วันนี้' : 'Today'}
-                              </span>
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'จำนวนรถทั้งเดือน' : 'Total Cars'}</span>
+                        <div className="text-xl font-black text-blue-400 font-sans">
+                          {monthlyReport.totalCars} <span className="text-xs font-normal text-slate-400">คัน</span>
+                        </div>
+                      </div>
+
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'เฉลี่ยต่อคัน' : 'Avg Ticket'}</span>
+                        <div className="text-xl font-black text-white font-sans">
+                          ฿{monthlyReport.averageTicket.toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'ขนาดยอดนิยม' : 'Top Size'}</span>
+                        <div className="text-xl font-black text-amber-400 font-sans">
+                          {monthlyReport.topSize}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Daily Breakdown Table for the Month */}
+                    <div className="luxe-panel rounded-2xl overflow-hidden border border-slate-800">
+                      <div className="p-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">
+                          {isTh ? `สรุปรายรับแยกตามรายวัน ประจำเดือน ${reportSelectedMonth}` : 'Daily Breakdown for Month'}
+                        </span>
+                        <span className="text-[11px] text-emerald-400 font-bold font-mono">
+                          {monthlyReport.dailyRows.length} {isTh ? 'วันที่มีการใช้บริการ' : 'active days'}
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                            <tr>
+                              <th className="py-2.5 px-3">วันที่</th>
+                              <th className="py-2.5 px-3">จำนวนรถที่ล้าง (คัน)</th>
+                              <th className="py-2.5 px-3">ใช้สิทธิ์แพ็คเกจ (ครั้ง)</th>
+                              <th className="py-2.5 px-3 text-right">รายรับประจำวัน (บาท)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {monthlyReport.dailyRows.map((row) => (
+                              <tr key={row.date} className="hover:bg-slate-900/40">
+                                <td className="py-2.5 px-3 font-semibold text-white">{row.date}</td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-blue-400">{row.carCount} คัน</td>
+                                <td className="py-2.5 px-3 font-mono text-slate-400">{row.packageCount} ครั้ง</td>
+                                <td className="py-2.5 px-3 text-right font-black text-emerald-400 font-sans">
+                                  ฿{row.revenue.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                            {monthlyReport.dailyRows.length === 0 && (
+                              <tr>
+                                <td colSpan={4} className="py-8 text-center text-slate-500">
+                                  ไม่มีรายการบริการในเดือนนี้
+                                </td>
+                              </tr>
                             )}
-                          </div>
-                          <p className="text-[11px] text-blue-400 font-mono font-bold mt-0.5">{b.timeSlot} น.</p>
-                        </td>
-                        <td className="py-3 px-3.5">
-                          <p className="font-semibold text-white whitespace-nowrap">{b.carInfo}</p>
-                          <p className="text-[10px] text-blue-400 font-mono">{b.id}</p>
-                        </td>
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <p className="text-slate-200 font-medium">{b.customerName}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">{b.phone}</p>
-                          {b.lineUserId ? (
-                            <button
-                              type="button"
-                              onClick={() => setAdminLineModalBooking(b)}
-                              title={isTh ? 'คลิกเพื่อจัดการการแจ้งเตือน LINE' : 'Click to manage LINE notification'}
-                              className="inline-flex items-center gap-1 text-[9px] text-emerald-400 font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 px-1.5 py-0.5 rounded border border-emerald-800/80 mt-0.5 transition cursor-pointer"
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              <span>LINE ผูกแล้ว ({b.lineUserId.slice(0, 5)}...)</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setAdminLineModalBooking(b)}
-                              title={isTh ? 'คลิกเพื่อผูก LINE ลูกค้าหรือทดสอบส่งแจ้งเตือน' : 'Click to link customer LINE'}
-                              className="inline-flex items-center gap-1 text-[9px] text-amber-300 hover:text-white bg-amber-950/50 hover:bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-800/60 mt-0.5 transition cursor-pointer"
-                            >
-                              <MessageCircle className="w-2.5 h-2.5 text-amber-400" />
-                              <span>LINE ยังไม่ผูก (คลิกจัดการ)</span>
-                            </button>
-                          )}
-                        </td>
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <span className="font-bold text-emerald-400">
-                            {b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${(b.paidAmount || 0).toLocaleString()}`}
-                          </span>
-                          <span className="text-[10px] text-slate-400 block font-mono">
-                            {b.paymentMethod === 'package' ? (b.usedPackageId ? `Pass #${b.usedPackageId}` : 'สิทธิ์ฟรี') : (b.paymentMethod || 'PromptPay')}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          {b.paymentSlipUrl ? (
-                            <button
-                              type="button"
-                              onClick={() => setViewSlipModalUrl(b.paymentSlipUrl || null)}
-                              className="px-2 py-1 rounded bg-blue-950/80 border border-blue-500/40 text-blue-300 hover:text-white text-[10px] font-semibold transition"
-                            >
-                              {isTh ? '🔍 ดูสลิป' : 'View Slip'}
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-slate-500">-</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3.5 whitespace-nowrap">
-                          <select
-                            value={b.status}
-                            onChange={(e) => handleUpdateBookingStage(b.id, e.target.value as any)}
-                            className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-white outline-none focus:border-blue-500"
-                          >
-                            <option value="pending">{isTh ? 'รอยืนยัน (Pending)' : 'Pending'}</option>
-                            <option value="step1">{isTh ? 'ขั้น 1: ตรวจสภาพก่อนล้าง' : 'Stage 1: Pre-Inspect'}</option>
-                            <option value="step2">{isTh ? 'ขั้น 2: พ่นโฟม & ล้างช่วงล่าง' : 'Stage 2: Active Foam'}</option>
-                            <option value="step3">{isTh ? 'ขั้น 3: ล้างมือถังคู่ & ซุ้มล้อ' : 'Stage 3: Two-Bucket Hand Wash'}</option>
-                            <option value="step4">{isTh ? 'ขั้น 4: เช็ดแห้ง & เป่าลมไล่น้ำ' : 'Stage 4: Air Blow Dry'}</option>
-                            <option value="ready">{isTh ? 'ขั้น 5: พร้อมส่งมอบรถ' : 'Stage 5: Ready for Handover'}</option>
-                            <option value="cancelled">{isTh ? 'ยกเลิกแล้ว (Cancelled)' : 'Cancelled'}</option>
-                          </select>
-                        </td>
-                        <td className="py-3 px-3.5 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => setCancelModalBooking(b)}
-                            className="p-1 rounded text-slate-500 hover:text-red-400 transition"
-                            title="Cancel Booking"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {adminFilteredBookings.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
-                          {isTh ? 'ไม่พบคิวการจองในเงื่อนไขนี้' : 'No bookings found'}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* VIEW 3: YEARLY REPORT */}
+                {reportType === 'yearly' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-400 font-semibold">{isTh ? 'เลือกปีที่ดูรายงาน:' : 'Select Year:'}</span>
+                        <input
+                          type="number"
+                          min="2025"
+                          max="2035"
+                          value={reportSelectedYear}
+                          onChange={(e) => setReportSelectedYear(e.target.value)}
+                          className="bg-slate-950 px-2.5 py-1 rounded-lg border border-blue-500/50 text-xs text-white outline-none w-24 font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'รายรับรวมทั้งปี' : 'Yearly Revenue'}</span>
+                        <div className="text-2xl font-black text-emerald-400 font-sans">
+                          ฿{yearlyReport.totalRevenue.toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'จำนวนรถทั้งปี' : 'Total Cars'}</span>
+                        <div className="text-2xl font-black text-blue-400 font-sans">
+                          {yearlyReport.totalCars} <span className="text-xs font-normal text-slate-400">คัน</span>
+                        </div>
+                      </div>
+
+                      <div className="luxe-panel p-3.5 rounded-xl space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">{isTh ? 'เฉลี่ยรายรับต่อเดือน' : 'Avg Monthly Revenue'}</span>
+                        <div className="text-2xl font-black text-white font-sans">
+                          ฿{yearlyReport.averageMonthlyRevenue.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 12-Month Breakdown Table */}
+                    <div className="luxe-panel rounded-2xl overflow-hidden border border-slate-800">
+                      <div className="p-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">
+                          {isTh ? `สรุปรายรับ 12 เดือน ประจำปี ${reportSelectedYear}` : '12-Month Yearly Ledger'}
+                        </span>
+                        <span className="text-[11px] text-emerald-400 font-bold font-mono">
+                          {yearlyReport.totalCars} คัน • ฿{yearlyReport.totalRevenue.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                            <tr>
+                              <th className="py-2.5 px-3">เดือน</th>
+                              <th className="py-2.5 px-3">จำนวนรถที่ล้าง (คัน)</th>
+                              <th className="py-2.5 px-3 text-right">รายรับรวม (บาท)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {yearlyReport.monthlyRows.map((m) => (
+                              <tr key={m.monthStr} className="hover:bg-slate-900/40">
+                                <td className="py-2.5 px-3 font-semibold text-white">{m.monthNameTh} ({m.monthStr})</td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-blue-400">{m.carCount} คัน</td>
+                                <td className="py-2.5 px-3 text-right font-black text-emerald-400 font-sans">
+                                  ฿{m.revenue.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Interactive Customer LINE Notification Manager Modal */}
             {adminLineModalBooking && (

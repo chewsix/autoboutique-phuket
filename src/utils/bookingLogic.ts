@@ -13,22 +13,85 @@ export type ServiceType =
   | 'accessories'
   | 'maintenance';
 
-export type CarSize = 'S' | 'M' | 'L' | 'XL' | 'Supercar';
+export type CarSize = 'S' | 'M' | 'L' | 'XL' | 'XXL' | 'สเปเชียล' | 'Supercar';
+
+export interface CarSizeOption {
+  size: CarSize;
+  labelTh: string;
+  labelEn: string;
+  exampleCars: string;
+  price: number;
+}
+
+export const CAR_SIZE_PRICING: Record<string, CarSizeOption> = {
+  S: {
+    size: 'S',
+    labelTh: 'Size S (รถเล็ก / Compact)',
+    labelEn: 'Size S (Compact)',
+    exampleCars: 'Yaris, Swift, Brio, City Hatchback, Mazda 2',
+    price: 250,
+  },
+  M: {
+    size: 'M',
+    labelTh: 'Size M (รถเก๋งกลาง / Sedan)',
+    labelEn: 'Size M (Mid Sedan)',
+    exampleCars: 'Civic, Altis, Mazda 3, Sylphy, Kicks',
+    price: 300,
+  },
+  L: {
+    size: 'L',
+    labelTh: 'Size L (รถเก๋งใหญ่ / CUV)',
+    labelEn: 'Size L (Large Sedan / CUV)',
+    exampleCars: 'Camry, Accord, CR-V, CX-5, Forester, HR-V',
+    price: 350,
+  },
+  XL: {
+    size: 'XL',
+    labelTh: 'Size XL (SUV ใหญ่ / กระบะ 4 ประตู)',
+    labelEn: 'Size XL (Large SUV / Pickup)',
+    exampleCars: 'Fortuner, Pajero Sport, Everest, D-Max, Hilux Revo',
+    price: 450,
+  },
+  XXL: {
+    size: 'XXL',
+    labelTh: 'Size XXL (รถตู้ VIP / Van)',
+    labelEn: 'Size XXL (VIP Van)',
+    exampleCars: 'Alphard, Vellfire, Carnival, Hyundai H1, Staria, Commuter',
+    price: 550,
+  },
+  สเปเชียล: {
+    size: 'สเปเชียล',
+    labelTh: 'Size สเปเชียล (Supercar / Exotic)',
+    labelEn: 'Size Special (Supercar / Exotic)',
+    exampleCars: 'Ferrari, Lamborghini, Porsche 911, McLaren, Bentley, Rolls-Royce',
+    price: 700,
+  },
+  Supercar: {
+    size: 'สเปเชียล',
+    labelTh: 'Size สเปเชียล (Supercar / Exotic)',
+    labelEn: 'Size Special (Supercar / Exotic)',
+    exampleCars: 'Ferrari, Lamborghini, Porsche 911, McLaren, Bentley, Rolls-Royce',
+    price: 700,
+  },
+};
 
 export interface BookingRecord {
   id: string;
   timeSlot: string;
   customerName: string;
   phone: string;
+  carModel?: string;
+  carColor?: string;
+  licensePlate?: string;
   carInfo: string;
-  serviceKey: ServiceType;
+  serviceKey?: ServiceType;
   service: string;
   subOptionId?: string;
   subOption?: string;
   size?: CarSize;
   date: string;
   vipDelivery?: boolean;
-  status: 'pending' | 'step1' | 'step2' | 'step3' | 'step4' | 'ready' | 'cancelled';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'step1' | 'step2' | 'step3' | 'step4' | 'ready';
   isWalkIn?: boolean;
   createdAt?: string; // ISO date string
   paidAmount?: number;
@@ -38,6 +101,20 @@ export interface BookingRecord {
   paymentSlipUrl?: string;
   isPackageRefunded?: boolean;
   isPackageForfeited?: boolean;
+  lineUserId?: string;
+}
+
+export interface CustomerProfile {
+  id: string;
+  customerName: string;
+  phone: string;
+  carModel: string;
+  carColor: string;
+  licensePlate: string;
+  defaultSize: CarSize;
+  visitCount: number;
+  totalSpent: number;
+  lastVisitDate: string;
   lineUserId?: string;
 }
 
@@ -670,34 +747,41 @@ export function verifyAdminPin(pin: string): boolean {
   return ADMIN_SECURITY_PINS.includes(cleanPin);
 }
 
-// Flat-Rate Car Wash Pricing (Testing Mode: Flat ฿1 for Live PromptPay Verification)
+// Flat-Rate Car Wash Pricing & Dynamic Size Matrix
 export const BASE_WASH_PRICE = 1;
 
 export function calculatePrice(
-  service: ServiceType = 'wash',
+  arg1: any = 'M',
   arg2?: any,
   arg3?: any
 ): { price: number; duration: string; durationEn: string; durationRu?: string; noteTh?: string; noteEn?: string; noteRu?: string } {
-  // Support either calculatePrice('wash', subOptionId) or calculatePrice('wash', size, subOptionId)
-  let subOptionId = 'standard';
-  if (typeof arg2 === 'string' && (arg2 === 'standard' || arg2 === 'engine' || arg2 === 'wax' || arg2 === 'glass')) {
-    subOptionId = arg2;
-  } else if (typeof arg3 === 'string') {
-    subOptionId = arg3;
+  const validSizes: CarSize[] = ['S', 'M', 'L', 'XL', 'XXL', 'สเปเชียล', 'Supercar'];
+  let size: CarSize = 'M';
+  let isTestMode = false;
+
+  if (validSizes.includes(arg1)) {
+    size = arg1;
+    if (typeof arg2 === 'boolean') isTestMode = arg2;
+    if (arg2 === 'test') isTestMode = true;
+  } else if (validSizes.includes(arg2)) {
+    size = arg2;
+    if (typeof arg3 === 'boolean') isTestMode = arg3;
+  } else if (arg1 === 'wash' || typeof arg1 === 'string') {
+    // Legacy call like calculatePrice('wash', 'standard')
+    isTestMode = true;
   }
 
-  // System Test Rate: Flat ฿1 (All options and add-ons are ฿1 during test mode)
-  const BASE_PRICE = 1;
-  const add = 0;
+  const sizeOpt = CAR_SIZE_PRICING[size] || CAR_SIZE_PRICING['M'];
+  const price = isTestMode ? 1 : sizeOpt.price;
 
   return {
-    price: BASE_PRICE + add,
+    price,
     duration: '1 ชม.',
     durationEn: '1 hr',
     durationRu: '1 час',
-    noteTh: 'ล้างสีดูดฝุ่นพรีเมียม pH 7 ปลอดภัยต่อสีรถ (ช่วงทดสอบระบบ: ฿1 เท่านั้น)',
-    noteEn: '100% pH-Neutral foam detailing wash (Testing Rate: ฿1 only)',
-    noteRu: 'Премиум детейлинг мойка с pH-нейтральной пеной (Тест ฿1)',
+    noteTh: `ล้างสีดูดฝุ่นพรีเมียม pH 7 ปลอดภัยต่อสีรถ (ขนาด ${size} - ฿${price.toLocaleString()})`,
+    noteEn: `100% pH-Neutral foam detailing wash (Size ${size} - ฿${price.toLocaleString()})`,
+    noteRu: `Премиум детейлинг мойка с pH-нейтральной пеной (Тест ฿1)`,
   };
 }
 
@@ -739,6 +823,24 @@ export function getSlotAvailability(
   };
 }
 
+// Work Status Normalization (Simplified 2-stage workflow: กำลังดำเนินการ / รถเสร็จแล้ว)
+export type StudioWorkStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+
+export function normalizeWorkStatus(status: BookingRecord['status']): StudioWorkStatus {
+  if (status === 'ready' || status === 'completed') return 'completed';
+  if (status === 'step1' || status === 'step2' || status === 'step3' || status === 'step4' || status === 'in_progress') return 'in_progress';
+  if (status === 'cancelled') return 'cancelled';
+  return 'pending';
+}
+
+export function getStatusLabel(status: BookingRecord['status'], isTh: boolean = true): string {
+  const norm = normalizeWorkStatus(status);
+  if (norm === 'in_progress') return isTh ? 'กำลังดำเนินการ' : 'In Progress';
+  if (norm === 'completed') return isTh ? 'รถเสร็จแล้ว' : 'Ready / Finished';
+  if (norm === 'cancelled') return isTh ? 'ยกเลิกแล้ว' : 'Cancelled';
+  return isTh ? 'รอยืนยันนัดหมาย' : 'Scheduled';
+}
+
 // Stage mapping
 export function mapStatusToStage(status: BookingRecord['status']): number {
   switch (status) {
@@ -746,16 +848,59 @@ export function mapStatusToStage(status: BookingRecord['status']): number {
     case 'step1':
       return 1;
     case 'step2':
+    case 'in_progress':
       return 2;
     case 'step3':
       return 3;
     case 'step4':
       return 4;
     case 'ready':
+    case 'completed':
       return 5;
     default:
       return 1;
   }
+}
+
+// Extract Unique Customer Profiles for CRM Directory
+export function extractCustomerProfiles(bookings: BookingRecord[]): CustomerProfile[] {
+  const map = new Map<string, CustomerProfile>();
+
+  bookings.forEach((b) => {
+    if (b.status === 'cancelled') return;
+    const cleanPhone = (b.phone || '').replace(/[^0-9]/g, '');
+    const key = cleanPhone || b.customerName;
+
+    const existing = map.get(key);
+    if (existing) {
+      existing.visitCount += 1;
+      existing.totalSpent += (b.paidAmount || 0);
+      if (b.date >= existing.lastVisitDate) {
+        existing.lastVisitDate = b.date;
+        if (b.carModel) existing.carModel = b.carModel;
+        if (b.carColor) existing.carColor = b.carColor;
+        if (b.licensePlate) existing.licensePlate = b.licensePlate;
+        if (b.size) existing.defaultSize = b.size;
+      }
+      if (b.lineUserId) existing.lineUserId = b.lineUserId;
+    } else {
+      map.set(key, {
+        id: `CUST-${cleanPhone.slice(-4) || Math.random().toString(36).substring(2, 6).toUpperCase()}`,
+        customerName: b.customerName,
+        phone: b.phone,
+        carModel: b.carModel || b.carInfo.split('(')[0].trim() || 'รถยนต์ส่วนบุคคล',
+        carColor: b.carColor || 'ไม่ระบุสี',
+        licensePlate: b.licensePlate || (b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '') : b.carInfo),
+        defaultSize: b.size || 'M',
+        visitCount: 1,
+        totalSpent: b.paidAmount || 0,
+        lastVisitDate: b.date,
+        lineUserId: b.lineUserId,
+      });
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => b.lastVisitDate.localeCompare(a.lastVisitDate));
 }
 
 // Stage text labels & studio photos tailored specifically for Car Wash
@@ -1025,6 +1170,250 @@ export function generatePromptPayPayload(phoneOrNationalId: string, amount?: num
   payload += '6304';
   const checksum = crc16(payload);
   return payload + checksum;
+}
+
+// =========================================================================
+// STUDIO EXECUTIVE REPORTING & DATA EXPORT (Daily, Monthly, Yearly)
+// Inspired by POS Studio Spreadsheet Format
+// =========================================================================
+
+export interface DailyReportSummary {
+  date: string;
+  totalCars: number;
+  totalRevenue: number;
+  completedCars: number;
+  inProgressCars: number;
+  sizeBreakdown: Record<CarSize, { count: number; revenue: number }>;
+  paymentBreakdown: {
+    promptpay: { count: number; revenue: number };
+    cash: { count: number; revenue: number };
+    package: { count: number; revenue: number };
+  };
+  bookings: BookingRecord[];
+}
+
+export function generateDailyReportSummary(dateStr: string, bookings: BookingRecord[]): DailyReportSummary {
+  const dayBookings = bookings.filter((b) => b.date === dateStr && b.status !== 'cancelled');
+
+  const sizeBreakdown: Record<CarSize, { count: number; revenue: number }> = {
+    'S': { count: 0, revenue: 0 },
+    'M': { count: 0, revenue: 0 },
+    'L': { count: 0, revenue: 0 },
+    'XL': { count: 0, revenue: 0 },
+    'XXL': { count: 0, revenue: 0 },
+    'สเปเชียล': { count: 0, revenue: 0 },
+    'Supercar': { count: 0, revenue: 0 },
+  };
+
+  const paymentBreakdown = {
+    promptpay: { count: 0, revenue: 0 },
+    cash: { count: 0, revenue: 0 },
+    package: { count: 0, revenue: 0 },
+  };
+
+  let totalRevenue = 0;
+  let completedCars = 0;
+  let inProgressCars = 0;
+
+  dayBookings.forEach((b) => {
+    const sz = (b.size && sizeBreakdown[b.size]) ? b.size : 'M';
+    const amt = b.paidAmount || 0;
+    sizeBreakdown[sz].count += 1;
+    sizeBreakdown[sz].revenue += amt;
+    totalRevenue += amt;
+
+    if (b.paymentMethod === 'package') {
+      paymentBreakdown.package.count += 1;
+    } else if (b.paymentMethod === 'cash') {
+      paymentBreakdown.cash.count += 1;
+      paymentBreakdown.cash.revenue += amt;
+    } else {
+      paymentBreakdown.promptpay.count += 1;
+      paymentBreakdown.promptpay.revenue += amt;
+    }
+
+    const norm = normalizeWorkStatus(b.status);
+    if (norm === 'completed') completedCars += 1;
+    if (norm === 'in_progress') inProgressCars += 1;
+  });
+
+  return {
+    date: dateStr,
+    totalCars: dayBookings.length,
+    totalRevenue,
+    completedCars,
+    inProgressCars,
+    sizeBreakdown,
+    paymentBreakdown,
+    bookings: dayBookings,
+  };
+}
+
+export interface MonthlyReportSummary {
+  monthStr: string;
+  totalCars: number;
+  totalRevenue: number;
+  averageTicket: number;
+  topSize: CarSize;
+  dailyRows: {
+    date: string;
+    dayNum: number;
+    carCount: number;
+    revenue: number;
+    packageCount: number;
+  }[];
+  bookings: BookingRecord[];
+}
+
+export function generateMonthlyReportSummary(monthStr: string, bookings: BookingRecord[]): MonthlyReportSummary {
+  const monthBookings = bookings.filter((b) => b.date.startsWith(monthStr) && b.status !== 'cancelled');
+
+  let totalRevenue = 0;
+  const sizeCountMap: Record<string, number> = {};
+  const dayMap = new Map<string, { count: number; revenue: number; packageCount: number }>();
+
+  monthBookings.forEach((b) => {
+    const amt = b.paidAmount || 0;
+    totalRevenue += amt;
+    const sz = b.size || 'M';
+    sizeCountMap[sz] = (sizeCountMap[sz] || 0) + 1;
+
+    const existing = dayMap.get(b.date) || { count: 0, revenue: 0, packageCount: 0 };
+    existing.count += 1;
+    existing.revenue += amt;
+    if (b.paymentMethod === 'package') existing.packageCount += 1;
+    dayMap.set(b.date, existing);
+  });
+
+  let topSize: CarSize = 'M';
+  let maxCount = -1;
+  (Object.keys(sizeCountMap) as CarSize[]).forEach((sz) => {
+    if (sizeCountMap[sz] > maxCount) {
+      maxCount = sizeCountMap[sz];
+      topSize = sz;
+    }
+  });
+
+  const dailyRows = Array.from(dayMap.entries())
+    .map(([date, data]) => ({
+      date,
+      dayNum: parseInt(date.split('-')[2], 10),
+      carCount: data.count,
+      revenue: data.revenue,
+      packageCount: data.packageCount,
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    monthStr,
+    totalCars: monthBookings.length,
+    totalRevenue,
+    averageTicket: monthBookings.length > 0 ? Math.round(totalRevenue / monthBookings.length) : 0,
+    topSize,
+    dailyRows,
+    bookings: monthBookings,
+  };
+}
+
+export interface YearlyReportSummary {
+  yearStr: string;
+  totalCars: number;
+  totalRevenue: number;
+  averageMonthlyRevenue: number;
+  monthlyRows: {
+    monthStr: string;
+    monthNameTh: string;
+    carCount: number;
+    revenue: number;
+  }[];
+  bookings: BookingRecord[];
+}
+
+export function generateYearlyReportSummary(yearStr: string, bookings: BookingRecord[]): YearlyReportSummary {
+  const yearBookings = bookings.filter((b) => b.date.startsWith(yearStr) && b.status !== 'cancelled');
+
+  const monthNamesTh = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+  ];
+
+  const monthMap = new Map<string, { carCount: number; revenue: number }>();
+  for (let m = 1; m <= 12; m++) {
+    const mStr = `${yearStr}-${m.toString().padStart(2, '0')}`;
+    monthMap.set(mStr, { carCount: 0, revenue: 0 });
+  }
+
+  let totalRevenue = 0;
+  yearBookings.forEach((b) => {
+    const mStr = b.date.slice(0, 7);
+    const existing = monthMap.get(mStr);
+    const amt = b.paidAmount || 0;
+    totalRevenue += amt;
+    if (existing) {
+      existing.carCount += 1;
+      existing.revenue += amt;
+    }
+  });
+
+  const monthlyRows = Array.from(monthMap.entries()).map(([mStr, data]) => {
+    const mIdx = parseInt(mStr.split('-')[1], 10) - 1;
+    return {
+      monthStr: mStr,
+      monthNameTh: monthNamesTh[mIdx] || mStr,
+      carCount: data.carCount,
+      revenue: data.revenue,
+    };
+  });
+
+  return {
+    yearStr,
+    totalCars: yearBookings.length,
+    totalRevenue,
+    averageMonthlyRevenue: Math.round(totalRevenue / 12),
+    monthlyRows,
+    bookings: yearBookings,
+  };
+}
+
+export function formatBookingsToCsv(bookings: BookingRecord[]): string {
+  const header = ['วันที่', 'เวลา', 'รหัสการจอง', 'ชื่อลูกค้า', 'เบอร์โทร', 'รุ่นรถยนต์', 'สีรถ', 'ทะเบียนรถ', 'ขนาดรถ (Size)', 'ยอดชำระ (บาท)', 'วิธีชำระ', 'สถานะงาน'];
+  const rows = bookings.map((b) => [
+    b.date,
+    `${b.timeSlot} น.`,
+    b.id,
+    `"${(b.customerName || '').replace(/"/g, '""')}"`,
+    `"${(b.phone || '').replace(/"/g, '""')}"`,
+    `"${(b.carModel || b.carInfo.split('(')[0] || '').trim().replace(/"/g, '""')}"`,
+    `"${(b.carColor || '').replace(/"/g, '""')}"`,
+    `"${(b.licensePlate || (b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '') : '')).trim().replace(/"/g, '""')}"`,
+    b.size || 'M',
+    b.paidAmount || 0,
+    b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : (b.paymentMethod || 'PromptPay'),
+    getStatusLabel(b.status, true),
+  ]);
+
+  const csvContent = [header.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+  return '\uFEFF' + csvContent; // UTF-8 BOM for Excel
+}
+
+export function formatBookingsToTsv(bookings: BookingRecord[]): string {
+  const header = ['วันที่', 'เวลา', 'รหัสการจอง', 'ชื่อลูกค้า', 'เบอร์โทร', 'รุ่นรถยนต์', 'สีรถ', 'ทะเบียนรถ', 'ขนาดรถ (Size)', 'ยอดชำระ (บาท)', 'วิธีชำระ', 'สถานะงาน'];
+  const rows = bookings.map((b) => [
+    b.date,
+    `${b.timeSlot} น.`,
+    b.id,
+    b.customerName || '',
+    b.phone || '',
+    (b.carModel || b.carInfo.split('(')[0] || '').trim(),
+    b.carColor || '',
+    (b.licensePlate || (b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '') : '')).trim(),
+    b.size || 'M',
+    b.paidAmount || 0,
+    b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : (b.paymentMethod || 'PromptPay'),
+    getStatusLabel(b.status, true),
+  ]);
+
+  return [header.join('\t'), ...rows.map((r) => r.join('\t'))].join('\n');
 }
 
 

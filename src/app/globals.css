@@ -307,3 +307,27 @@ body.theme-light .ambient-cobalt-glow,
   background-color: rgba(15, 23, 42, 0.6) !important;
   backdrop-filter: blur(8px) !important;
 }
+
+/* Print / PDF Generation Styles */
+@media print {
+  body {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+  }
+  header, nav, .autoboutique-bottom-nav, button, input, select, .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  #printable-daily-report {
+    display: block !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
