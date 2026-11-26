@@ -462,6 +462,140 @@ export async function POST(req: NextRequest) {
       },
     };
 
+    // Build Studio Admin Stage Update Flex Message
+    const adminStageFlexMessage = {
+      type: 'flex',
+      altText: `🚗 อัปเดตสถานะรถ: ${carDisplay} (${stageName})`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#0F172A',
+          paddingAll: '16px',
+          contents: [
+            {
+              type: 'text',
+              text: 'AUTOBOUTIQUE • สตูดิโออัปเดตสถานะงาน',
+              weight: 'bold',
+              color: '#38BDF8',
+              size: 'xs',
+            },
+            {
+              type: 'text',
+              text: `🚗 ขั้นตอนที่ ${stageNumber}/5: ${stageName}`,
+              weight: 'bold',
+              color: '#FFFFFF',
+              size: 'md',
+              margin: 'sm',
+            },
+          ],
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: carDisplay,
+              weight: 'bold',
+              size: 'md',
+              color: '#0F172A',
+            },
+            {
+              type: 'text',
+              text: `ลูกค้า: ${customerName} (${phone})`,
+              size: 'xs',
+              color: '#64748B',
+              margin: 'xs',
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              backgroundColor: '#F8FAFC',
+              cornerRadius: '8px',
+              paddingAll: '12px',
+              borderColor: '#E2E8F0',
+              borderWidth: '1px',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: 'รหัสการจอง:', size: 'xs', color: '#64748B', flex: 4 },
+                    { type: 'text', text: bookingId, size: 'xs', color: '#0F172A', weight: 'bold', align: 'end', flex: 5 },
+                  ],
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'sm',
+                  contents: [
+                    { type: 'text', text: 'ขั้นตอนงาน:', size: 'xs', color: '#64748B', flex: 4 },
+                    { type: 'text', text: `ขั้นที่ ${stageNumber}/5`, size: 'xs', color: '#0284C7', weight: 'bold', align: 'end', flex: 5 },
+                  ],
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'sm',
+                  contents: [
+                    { type: 'text', text: 'ชื่อขั้นตอน:', size: 'xs', color: '#64748B', flex: 4 },
+                    { type: 'text', text: stageName, size: 'xs', color: '#059669', weight: 'bold', align: 'end', flex: 5 },
+                  ],
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'sm',
+                  contents: [
+                    { type: 'text', text: 'วันนัดหมาย:', size: 'xs', color: '#64748B', flex: 4 },
+                    { type: 'text', text: `${date} (${timeSlot} น.)`, size: 'xs', color: '#0F172A', align: 'end', flex: 5 },
+                  ],
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'sm',
+                  contents: [
+                    { type: 'text', text: 'สถานะการส่ง:', size: 'xs', color: '#64748B', flex: 4 },
+                    {
+                      type: 'text',
+                      text: customerUserId ? '🟢 ส่งเข้า LINE ลูกค้าแล้ว' : '📢 แจ้งเตือนสตูดิโอ (ลูกค้ายังไม่ผูก LINE)',
+                      size: 'xs',
+                      color: customerUserId ? '#059669' : '#D97706',
+                      weight: 'bold',
+                      align: 'end',
+                      flex: 5,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#1D4ED8',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: '🔍 ตรวจสอบสถานะรถสด',
+                uri: 'https://autoboutique-phuket.vercel.app/',
+              },
+            },
+          ],
+        },
+      },
+    };
+
     let customerSent = false;
     let adminSent = false;
 
@@ -481,19 +615,26 @@ export async function POST(req: NextRequest) {
         }
       } else {
         // Stage update:
-        // ONLY send to customer if customer has a LINE User ID!
-        // DO NOT spam admin pretending to be the customer!
+        // 1. If customer has a LINE User ID, push to customer
         if (customerUserId) {
           const stageText = `🚗 [Autoboutique Phuket] อัปเดตสถานะรถสด!\nทะเบียน/รถ: ${carInfo}\n📍 ขั้นตอนที่ ${stageNumber}/5: ${stageName}\n📅 วันนัดหมาย: ${date} (${timeSlot} น.)\n🔖 รหัสจอง: #${bookingId}`;
           customerSent = await sendPush(customerUserId, customerFlexMessage, stageText);
+        }
+
+        // 2. ALWAYS notify studio admin / developer of stage updates so operations & tests are immediately visible
+        if (adminUserId) {
+          const adminStageText = `🚗 [Autoboutique Phuket] อัปเดตสถานะรถสด!\nทะเบียน/รถ: ${carInfo} (#${bookingId})\n👤 ลูกค้า: ${customerName} (${phone})\n📍 ขั้นตอนที่ ${stageNumber}/5: ${stageName}\n📱 ลูกค้า: ${customerUserId ? 'ส่งแจ้งเตือนลูกค้าแล้ว' : 'ยังไม่ผูก LINE'}\n🌐 เช็กสถานะสด: https://autoboutique-phuket.vercel.app/`;
+          adminSent = await sendPush(adminUserId, adminStageFlexMessage, adminStageText);
         }
       }
     }
 
     // LINE Notify fallback if configured
-    if (lineNotifyToken && isBookingConfirmed) {
+    if (lineNotifyToken) {
       try {
-        const notifyMsg = `\n✅ ยืนยันการจองคิวสำเร็จ!\nลูกค้า: ${customerName} (${phone})\nรถ: ${carInfo}\nบริการ: ${service}\nวันนัดหมาย: ${date} (${timeSlot} น.)\nยอดชำระ: ${paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${paidAmount.toLocaleString()}`}\nรหัสจอง: ${bookingId}`;
+        const notifyMsg = isBookingConfirmed
+          ? `\n✅ ยืนยันการจองคิวสำเร็จ!\nลูกค้า: ${customerName} (${phone})\nรถ: ${carInfo}\nบริการ: ${service}\nวันนัดหมาย: ${date} (${timeSlot} น.)\nยอดชำระ: ${paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : `฿${paidAmount.toLocaleString()}`}\nรหัสจอง: ${bookingId}`
+          : `\n🚗 อัปเดตสถานะรถสด!\nรถ: ${carInfo} (#${bookingId})\nลูกค้า: ${customerName} (${phone})\nขั้นตอนที่ ${stageNumber}/5: ${stageName}\nวันนัดหมาย: ${date} (${timeSlot} น.)`;
         await fetch('https://notify-api.line.me/api/notify', {
           method: 'POST',
           headers: {

@@ -1000,12 +1000,26 @@ export default function AutoboutiqueApp() {
       } else {
         showToast(
           isTh
-            ? `🔄 อัปเดตสถานะคิว ${id} เรียบร้อย (ลูกค้ายังไม่ผูก LINE - เช็กผ่านเว็บ)`
-            : `Stage updated (Customer has no LINE ID)`,
+            ? `🔄 อัปเดตสถานะคิว ${id} และส่งแจ้งเตือนเข้า LINE สตูดิโอเรียบร้อย (ลูกค้ายังไม่ผูก LINE)`
+            : `Stage updated & notified studio LINE`,
           3500
         );
       }
     }
+  };
+
+  // Toggle or Link Booking LINE ID for Admin Testing
+  const handleToggleBookingLineLink = (id: string) => {
+    setBookings((prev) =>
+      prev.map((b) => {
+        if (b.id === id) {
+          const nextLineId = b.lineUserId ? undefined : 'Uf56b174c54c8be354754f7dddc9d08dc';
+          return { ...b, lineUserId: nextLineId };
+        }
+        return b;
+      })
+    );
+    showToast(isTh ? '📱 สลับการผูก LINE สำหรับคิวนี้เรียบร้อย' : 'LINE connection toggled', 3000);
   };
 
   // Admin Create Walk-in (Flat ฿500 Base Rate)
@@ -2706,14 +2720,24 @@ export default function AutoboutiqueApp() {
                           <p className="text-slate-200 font-medium">{b.customerName}</p>
                           <p className="text-[10px] text-slate-400 font-mono">{b.phone}</p>
                           {b.lineUserId ? (
-                            <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400 font-semibold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/80 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleBookingLineLink(b.id)}
+                              title={isTh ? 'คลิกเพื่อยกเลิกการผูก LINE' : 'Click to unlink LINE'}
+                              className="inline-flex items-center gap-1 text-[9px] text-emerald-400 font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 px-1.5 py-0.5 rounded border border-emerald-800/80 mt-0.5 transition cursor-pointer"
+                            >
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              LINE เชื่อมต่อแล้ว
-                            </span>
+                              LINE เชื่อมต่อแล้ว ✓
+                            </button>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[9px] text-slate-400 bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-700/60 mt-0.5">
-                              LINE ยังไม่ผูก
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleBookingLineLink(b.id)}
+                              title={isTh ? 'คลิกเพื่อผูก LINE บัญชีสตูดิโอ (สำหรับทดสอบรับการแจ้งเตือน)' : 'Click to link admin test LINE'}
+                              className="inline-flex items-center gap-1 text-[9px] text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-700 mt-0.5 transition cursor-pointer"
+                            >
+                              <span>LINE ยังไม่ผูก (คลิกเพื่อผูก)</span>
+                            </button>
                           )}
                         </td>
                         <td className="py-3 px-3.5 whitespace-nowrap">
