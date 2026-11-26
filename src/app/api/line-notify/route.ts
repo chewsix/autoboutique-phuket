@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveCustomerLineUserId, getLastActiveLineUserId } from '@/utils/lineBindings';
 
 // Internal secret to protect against external bot abuse
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET;
@@ -102,11 +103,16 @@ export async function POST(req: NextRequest) {
       process.env.LINE_TARGET_USER_ID ||
       'Uf56b174c54c8be354754f7dddc9d08dc';
 
-    // Real customer LINE user ID (must start with 'U' and be at least 20 chars)
-    const customerUserId =
+    // Real customer LINE user ID (direct, auto-resolved from webhook cache, or active tester session)
+    const directUserId =
       lineUserId && typeof lineUserId === 'string' && lineUserId.trim().startsWith('U') && lineUserId.trim().length >= 20
         ? lineUserId.trim()
         : undefined;
+
+    const customerUserId =
+      directUserId ||
+      resolveCustomerLineUserId(bookingId, phone) ||
+      (type === 'stage_update' ? getLastActiveLineUserId() : undefined);
 
     const lineNotifyToken =
       process.env.LINE_NOTIFY_TOKEN ||

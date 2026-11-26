@@ -251,9 +251,13 @@ export default function AutoboutiqueApp() {
   const [pinInput, setPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<boolean>(false);
   const [adminActiveTab, setAdminActiveTab] = useState<'dashboard' | 'bookings' | 'packages'>('dashboard');
+  const [adminDateScope, setAdminDateScope] = useState<'all' | 'today' | 'custom'>('all');
   const [adminSelectedDate, setAdminSelectedDate] = useState<string>('2026-11-25');
   const [adminBookingFilter, setAdminBookingFilter] = useState<'all' | 'pending' | 'inprogress' | 'ready' | 'cancelled'>('all');
   const [adminSearchTerm, setAdminSearchTerm] = useState<string>('');
+  const [adminLineModalBooking, setAdminLineModalBooking] = useState<BookingRecord | null>(null);
+  const [customLineUserIdInput, setCustomLineUserIdInput] = useState<string>('');
+  const [lastActiveLineUser, setLastActiveLineUser] = useState<string | null>(null);
 
   // Modals & Inspection State
   const [walkInModalOpen, setWalkInModalOpen] = useState(false);
@@ -523,6 +527,31 @@ export default function AutoboutiqueApp() {
       console.warn('Failed saving locked slots:', e);
     }
   }, [lockedSlots, isHydrated]);
+
+  // Sync LINE Bindings with Server
+  useEffect(() => {
+    if (view === 'admin' || isAdminAuthenticated) {
+      fetch('/api/line-bindings')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.lastActiveUserId) {
+            setLastActiveLineUser(data.lastActiveUserId);
+          }
+          if (data?.bindings?.byBookingId) {
+            setBookings((prev) =>
+              prev.map((b) => {
+                const bound = data.bindings.byBookingId[b.id.toUpperCase()];
+                if (bound?.lineUserId && !b.lineUserId) {
+                  return { ...b, lineUserId: bound.lineUserId };
+                }
+                return b;
+              })
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [view, isAdminAuthenticated]);
 
   // Save Lang
   const handleLanguageChange = (newLang: Language) => {
@@ -1010,16 +1039,62 @@ export default function AutoboutiqueApp() {
 
   // Toggle or Link Booking LINE ID for Admin Testing
   const handleToggleBookingLineLink = (id: string) => {
-    setBookings((prev) =>
-      prev.map((b) => {
-        if (b.id === id) {
-          const nextLineId = b.lineUserId ? undefined : 'Uf56b174c54c8be354754f7dddc9d08dc';
-          return { ...b, lineUserId: nextLineId };
-        }
-        return b;
-      })
-    );
-    showToast(isTh ? '📱 สลับการผูก LINE สำหรับคิวนี้เรียบร้อย' : 'LINE connection toggled', 3000);
+    const target = bookings.find((b) => b.id === id);
+    if (target) {
+      setAdminLineModalBooking(target);
+    }
+  };
+
+  const handleSaveLineBinding = async (bookingId: string, lineId: string) => {
+    try {
+      await fetch('/api/line-bindings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, lineUserId: lineId }),
+      });
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, lineUserId: lineId } : b))
+      );
+      setAdminLineModalBooking(null);
+      showToast(isTh ? `✅ ผูก LINE กับคิว ${bookingId} เรียบร้อย 📱` : `LINE bound successfully`, 3000);
+    } catch (e) {
+      showToast(isTh ? '❌ ไม่สามารถบันทึกได้' : 'Failed to save', 3000);
+    }
+  };
+
+  const handleUnlinkLineBinding = async (bookingId: string) => {
+    try {
+      await fetch('/api/line-bindings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId, action: 'clear' }),
+      });
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, lineUserId: undefined } : b))
+      );
+      setAdminLineModalBooking(null);
+      showToast(isTh ? `ปลดการผูก LINE เรียบร้อย` : `LINE unlinked`, 3000);
+    } catch (e) {}
+  };
+
+  const handleSendTestLineMessage = async (booking: BookingRecord) => {
+    const stageNum = mapStatusToStage(booking.status);
+    const stageInfo = getStageDetails(stageNum, isTh);
+    await sendLineNotification({
+      type: 'stage_update',
+      bookingId: booking.id,
+      customerName: booking.customerName,
+      phone: booking.phone,
+      carInfo: booking.carInfo,
+      service: booking.service,
+      timeSlot: booking.timeSlot,
+      date: booking.date,
+      stageName: isTh ? stageInfo.titleTh : stageInfo.titleEn,
+      stageNumber: stageNum,
+      stagePhotoUrl: stageInfo.photoUrl,
+      lineUserId: booking.lineUserId || lastActiveLineUser || 'Uf56b174c54c8be354754f7dddc9d08dc',
+    });
+    showToast(isTh ? `🚀 ส่งข้อความทดสอบเข้า LINE เรียบร้อย!` : `Test notification sent!`, 3500);
   };
 
   // Admin Create Walk-in (Flat ฿500 Base Rate)
@@ -1169,49 +1244,81 @@ export default function AutoboutiqueApp() {
     }
   };
 
-  // Admin Daily Financial Metrics
+  // Admin Studio Financial & Operational Metrics (Comprehensive across all dates or selected date)
   const adminMetrics = useMemo(() => {
-    const daysBookings = bookings.filter((b) => b.date === adminSelectedDate);
-    const activeDaysBookings = daysBookings.filter((b) => b.status !== 'cancelled');
-    const revenue = activeDaysBookings.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
-    const completed = activeDaysBookings.filter((b) => b.status === 'ready').length;
-    const inProgress = activeDaysBookings.filter((b) => ['step1', 'step2', 'step3', 'step4'].includes(b.status)).length;
-    const pending = activeDaysBookings.filter((b) => b.status === 'pending').length;
-    const totalSlots = TIME_SLOTS.length * 2; // 2 bays
-    const capacityPct = Math.min(100, Math.round((activeDaysBookings.length / totalSlots) * 100));
+    const isAllScope = adminDateScope === 'all';
+    const targetBookings = isAllScope
+      ? bookings
+      : adminDateScope === 'today'
+      ? bookings.filter((b) => b.date === '2026-11-25' || b.date === selectedDate)
+      : bookings.filter((b) => b.date === adminSelectedDate);
+
+    const activeBookings = targetBookings.filter((b) => b.status !== 'cancelled');
+    const revenue = activeBookings.reduce((sum, b) => sum + (b.paidAmount || 0), 0);
+    const completed = activeBookings.filter((b) => b.status === 'ready').length;
+    const inProgress = activeBookings.filter((b) => ['step1', 'step2', 'step3', 'step4'].includes(b.status)).length;
+    const pending = activeBookings.filter((b) => b.status === 'pending').length;
+    const packageCount = activeBookings.filter((b) => b.paymentMethod === 'package').length;
+    const lineLinkedCount = activeBookings.filter((b) => Boolean(b.lineUserId)).length;
+    const totalSlots = isAllScope ? Math.max(activeBookings.length, 12) : TIME_SLOTS.length * 2;
+    const capacityPct = Math.min(100, Math.round((activeBookings.length / totalSlots) * 100));
 
     return {
       revenue,
       completed,
       inProgress,
       pending,
-      totalCount: activeDaysBookings.length,
+      packageCount,
+      lineLinkedCount,
+      totalCount: activeBookings.length,
+      allTotalCount: bookings.filter((b) => b.status !== 'cancelled').length,
       capacityPct,
+      isAllScope,
     };
-  }, [bookings, adminSelectedDate]);
+  }, [bookings, adminDateScope, adminSelectedDate, selectedDate]);
 
-  // Admin Filtered Bookings
+  // Admin Filtered Bookings across All Dates or Specific Date
   const adminFilteredBookings = useMemo(() => {
-    return bookings.filter((b) => {
-      if (b.date !== adminSelectedDate) return false;
+    let result = bookings.filter((b) => {
+      if (adminDateScope === 'all') {
+        // Show across all dates!
+      } else if (adminDateScope === 'today') {
+        const todayStr = '2026-11-25';
+        if (b.date !== todayStr && b.date !== selectedDate) return false;
+      } else if (adminDateScope === 'custom') {
+        if (b.date !== adminSelectedDate) return false;
+      }
+
       if (adminBookingFilter === 'all') return b.status !== 'cancelled';
       if (adminBookingFilter === 'pending') return b.status === 'pending';
       if (adminBookingFilter === 'inprogress') return ['step1', 'step2', 'step3', 'step4'].includes(b.status);
       if (adminBookingFilter === 'ready') return b.status === 'ready';
       if (adminBookingFilter === 'cancelled') return b.status === 'cancelled';
       return b.status !== 'cancelled';
-    }).filter((b) => {
-      if (!adminSearchTerm.trim()) return true;
+    });
+
+    if (adminSearchTerm.trim()) {
       const q = adminSearchTerm.toLowerCase().trim();
       const cleanNums = q.replace(/[^0-9]/g, '');
-      return (
-        b.carInfo.toLowerCase().includes(q) ||
-        b.customerName.toLowerCase().includes(q) ||
-        b.id.toLowerCase().includes(q) ||
-        (cleanNums.length >= 3 && b.phone.replace(/[^0-9]/g, '').includes(cleanNums))
-      );
+      result = result.filter((b) => {
+        return (
+          b.carInfo.toLowerCase().includes(q) ||
+          b.customerName.toLowerCase().includes(q) ||
+          b.id.toLowerCase().includes(q) ||
+          b.date.toLowerCase().includes(q) ||
+          (cleanNums.length >= 3 && b.phone.replace(/[^0-9]/g, '').includes(cleanNums))
+        );
+      });
+    }
+
+    // Sort by Date (newest first) then by timeSlot
+    result.sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date);
+      return a.timeSlot.localeCompare(b.timeSlot);
     });
-  }, [bookings, adminSelectedDate, adminBookingFilter, adminSearchTerm]);
+
+    return result;
+  }, [bookings, adminDateScope, adminSelectedDate, selectedDate, adminBookingFilter, adminSearchTerm]);
 
   // Active Vehicle in Live Tracker
   const activeCarRecord = useMemo(() => {
@@ -2603,69 +2710,144 @@ export default function AutoboutiqueApp() {
               </div>
             </div>
 
-            {/* Daily Financial & Operational KPI Cards */}
+            {/* Comprehensive Studio Financial & Operational KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="luxe-panel p-3.5 rounded-xl space-y-1">
                 <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                  <span>{isTh ? 'รายรับวันนี้' : 'Today Revenue'}</span>
+                  <span>{adminMetrics.isAllScope ? (isTh ? 'รายรับสะสมรวม (ทั้งหมด)' : 'Total Revenue') : (isTh ? 'รายรับวันนี้' : 'Today Revenue')}</span>
                   <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
                 </div>
                 <div className="text-lg md:text-xl font-bold text-white font-sans">
                   ฿{adminMetrics.revenue.toLocaleString()}
                 </div>
-                <p className="text-[10px] text-slate-500">{adminMetrics.totalCount} {isTh ? 'คิวที่ชำระแล้ว' : 'Paid bookings'}</p>
+                <p className="text-[10px] text-slate-500 font-medium">
+                  {adminMetrics.totalCount} {isTh ? 'คิวที่บันทึก' : 'Bookings'} • {adminMetrics.packageCount} {isTh ? 'สิทธิ์แพ็คเกจ' : 'Passes'}
+                </p>
               </div>
 
               <div className="luxe-panel p-3.5 rounded-xl space-y-1">
                 <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                  <span>{isTh ? 'ส่งมอบแล้ว' : 'Completed'}</span>
+                  <span>{adminMetrics.isAllScope ? (isTh ? 'ส่งมอบแล้ว (ทั้งหมด)' : 'Completed (Total)') : (isTh ? 'ส่งมอบแล้ว' : 'Completed')}</span>
                   <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
                 </div>
                 <div className="text-lg md:text-xl font-bold text-white font-sans">
                   {adminMetrics.completed} <span className="text-xs text-slate-400 font-normal">{isTh ? 'คัน' : 'Cars'}</span>
                 </div>
-                <p className="text-[10px] text-slate-500">{isTh ? 'ผ่านการตรวจสภาพ' : 'Inspected'}</p>
+                <p className="text-[10px] text-slate-500">{isTh ? 'ผ่านการตรวจสภาพเรียบร้อย' : 'Inspected & Delivered'}</p>
               </div>
 
               <div className="luxe-panel p-3.5 rounded-xl space-y-1">
                 <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                  <span>{isTh ? 'กำลังล้าง' : 'In Bay'}</span>
+                  <span>{isTh ? 'กำลังทำงานในสตูดิโอ' : 'In Progress'}</span>
                   <Clock className="w-3.5 h-3.5 text-amber-400" />
                 </div>
                 <div className="text-lg md:text-xl font-bold text-white font-sans">
                   {adminMetrics.inProgress} <span className="text-xs text-slate-400 font-normal">{isTh ? 'ช่อง' : 'Bays'}</span>
                 </div>
-                <p className="text-[10px] text-slate-500">{isTh ? 'กำลังทำงานในช่องล้าง' : 'Active detailing'}</p>
+                <p className="text-[10px] text-slate-500">{isTh ? 'กำลังทำงานในขั้นตอน 1-4' : 'Active detailing'}</p>
               </div>
 
               <div className="luxe-panel p-3.5 rounded-xl space-y-1">
                 <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                  <span>{isTh ? 'อัตราครองช่อง' : 'Capacity'}</span>
-                  <BarChart3 className="w-3.5 h-3.5 text-blue-400" />
+                  <span>{isTh ? 'เชื่อมต่อ LINE แจ้งเตือน' : 'LINE Alerts'}</span>
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
                 </div>
-                <div className="text-lg md:text-xl font-bold text-white font-sans">
-                  {adminMetrics.capacityPct}%
+                <div className="text-lg md:text-xl font-bold text-emerald-400 font-sans">
+                  {adminMetrics.lineLinkedCount} <span className="text-xs text-slate-400 font-normal">/ {adminMetrics.totalCount} {isTh ? 'คิว' : 'Queues'}</span>
                 </div>
-                <p className="text-[10px] text-slate-500">2 {isTh ? 'ช่องบริการมาตรฐาน' : 'Bays total'}</p>
+                <p className="text-[10px] text-slate-500">
+                  {adminMetrics.totalCount > 0 ? Math.round((adminMetrics.lineLinkedCount / adminMetrics.totalCount) * 100) : 0}% {isTh ? 'พร้อมส่งแจ้งเตือนสด' : 'Linked'}
+                </p>
               </div>
             </div>
 
-            {/* Filter Bar & Date Selector */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={adminSelectedDate}
-                  onChange={(e) => setAdminSelectedDate(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white outline-none focus:border-blue-500"
-                />
-                <span className="text-xs text-slate-400">
-                  {formatBookingDate(adminSelectedDate, lang)}
-                </span>
+            {/* Filter Bar: Scope Selector (All vs Today vs Custom Date) + Universal Search */}
+            <div className="flex flex-col gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                {/* Scope Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setAdminDateScope('all')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                      adminDateScope === 'all'
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <CalendarIcon className="w-3.5 h-3.5 text-blue-300" />
+                    <span>{isTh ? '🌐 ดูงานทั้งหมด (ทุกวัน)' : 'All Bookings'}</span>
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full bg-blue-900/80 text-[10px] text-blue-200 font-mono">
+                      {bookings.filter((b) => b.status !== 'cancelled').length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAdminDateScope('today')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                      adminDateScope === 'today'
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{isTh ? '📅 วันนี้' : 'Today'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAdminDateScope('custom')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1.5 ${
+                      adminDateScope === 'custom'
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>{isTh ? '📆 ระบุวัน' : 'Pick Date'}</span>
+                  </button>
+                </div>
+
+                {/* Custom Date Picker (when custom scope active) */}
+                {adminDateScope === 'custom' && (
+                  <div className="flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-lg border border-blue-500/50 animate-fade-in">
+                    <input
+                      type="date"
+                      value={adminSelectedDate}
+                      onChange={(e) => setAdminSelectedDate(e.target.value)}
+                      className="bg-transparent text-xs text-white outline-none"
+                    />
+                    <span className="text-xs text-blue-300 font-medium">
+                      {formatBookingDate(adminSelectedDate, lang)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Universal Search across all dates */}
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={adminSearchTerm}
+                    onChange={(e) => setAdminSearchTerm(e.target.value)}
+                    placeholder={isTh ? 'ค้นหาคิวงาน, ทะเบียนรถ, ชื่อลูกค้า, เบอร์โทร...' : 'Search booking ID, plate, name, phone...'}
+                    className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500"
+                  />
+                  {adminSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setAdminSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Status Filter Chips */}
-              <div className="flex items-center gap-1 overflow-x-auto text-xs">
+              <div className="flex items-center gap-1 overflow-x-auto text-xs pt-1.5 border-t border-slate-800/60">
+                <span className="text-[11px] text-slate-500 mr-1.5 shrink-0">{isTh ? 'สถานะงาน:' : 'Status:'}</span>
                 {(['all', 'pending', 'inprogress', 'ready', 'cancelled'] as const).map((fil) => (
                   <button
                     key={fil}
@@ -2697,7 +2879,7 @@ export default function AutoboutiqueApp() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
                     <tr>
-                      <th className="py-3 px-3.5">{isTh ? 'เวลา' : 'Time'}</th>
+                      <th className="py-3 px-3.5">{isTh ? 'วันที่ & เวลา' : 'Date & Time'}</th>
                       <th className="py-3 px-3.5">{isTh ? 'ทะเบียน / รถยนต์' : 'Vehicle'}</th>
                       <th className="py-3 px-3.5">{isTh ? 'ลูกค้า / ติดต่อ' : 'Client'}</th>
                       <th className="py-3 px-3.5">{isTh ? 'ยอดชำระ' : 'Amount'}</th>
@@ -2709,8 +2891,16 @@ export default function AutoboutiqueApp() {
                   <tbody className="divide-y divide-slate-800/60">
                     {adminFilteredBookings.map((b, bIdx) => (
                       <tr key={`${b.id}-${b.createdAt || bIdx}`} className="hover:bg-slate-900/40 transition">
-                        <td className="py-3 px-3.5 font-bold text-white whitespace-nowrap">
-                          {b.timeSlot} น.
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-white text-xs">{formatBookingDate(b.date, lang)}</span>
+                            {b.date === '2026-11-25' && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-900/60 text-blue-300 border border-blue-700/50 font-semibold">
+                                {isTh ? 'วันนี้' : 'Today'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-blue-400 font-mono font-bold mt-0.5">{b.timeSlot} น.</p>
                         </td>
                         <td className="py-3 px-3.5">
                           <p className="font-semibold text-white whitespace-nowrap">{b.carInfo}</p>
@@ -2722,21 +2912,22 @@ export default function AutoboutiqueApp() {
                           {b.lineUserId ? (
                             <button
                               type="button"
-                              onClick={() => handleToggleBookingLineLink(b.id)}
-                              title={isTh ? 'คลิกเพื่อยกเลิกการผูก LINE' : 'Click to unlink LINE'}
+                              onClick={() => setAdminLineModalBooking(b)}
+                              title={isTh ? 'คลิกเพื่อจัดการการแจ้งเตือน LINE' : 'Click to manage LINE notification'}
                               className="inline-flex items-center gap-1 text-[9px] text-emerald-400 font-semibold bg-emerald-950/60 hover:bg-emerald-900/60 px-1.5 py-0.5 rounded border border-emerald-800/80 mt-0.5 transition cursor-pointer"
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              LINE เชื่อมต่อแล้ว ✓
+                              <span>LINE ผูกแล้ว ({b.lineUserId.slice(0, 5)}...)</span>
                             </button>
                           ) : (
                             <button
                               type="button"
-                              onClick={() => handleToggleBookingLineLink(b.id)}
-                              title={isTh ? 'คลิกเพื่อผูก LINE บัญชีสตูดิโอ (สำหรับทดสอบรับการแจ้งเตือน)' : 'Click to link admin test LINE'}
-                              className="inline-flex items-center gap-1 text-[9px] text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 px-1.5 py-0.5 rounded border border-slate-700 mt-0.5 transition cursor-pointer"
+                              onClick={() => setAdminLineModalBooking(b)}
+                              title={isTh ? 'คลิกเพื่อผูก LINE ลูกค้าหรือทดสอบส่งแจ้งเตือน' : 'Click to link customer LINE'}
+                              className="inline-flex items-center gap-1 text-[9px] text-amber-300 hover:text-white bg-amber-950/50 hover:bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-800/60 mt-0.5 transition cursor-pointer"
                             >
-                              <span>LINE ยังไม่ผูก (คลิกเพื่อผูก)</span>
+                              <MessageCircle className="w-2.5 h-2.5 text-amber-400" />
+                              <span>LINE ยังไม่ผูก (คลิกจัดการ)</span>
                             </button>
                           )}
                         </td>
@@ -2799,6 +2990,129 @@ export default function AutoboutiqueApp() {
                 </table>
               </div>
             </div>
+
+            {/* Interactive Customer LINE Notification Manager Modal */}
+            {adminLineModalBooking && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                <div className="w-full max-w-md p-5 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="w-5 h-5 text-emerald-400" />
+                      <h3 className="text-sm font-bold text-white">
+                        {isTh ? 'จัดการระบบแจ้งเตือน LINE ลูกค้า' : 'Customer LINE Manager'}
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminLineModalBooking(null);
+                        setCustomLineUserIdInput('');
+                      }}
+                      className="text-slate-400 hover:text-white p-1 rounded-lg"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Customer Info Card */}
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{isTh ? 'รหัสคิว:' : 'Booking ID:'}</span>
+                      <span className="font-bold text-blue-400 font-mono">{adminLineModalBooking.id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{isTh ? 'ลูกค้า:' : 'Customer:'}</span>
+                      <span className="font-semibold text-white">{adminLineModalBooking.customerName} ({adminLineModalBooking.phone})</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{isTh ? 'รถยนต์:' : 'Vehicle:'}</span>
+                      <span className="text-slate-200">{adminLineModalBooking.carInfo}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">{isTh ? 'สถานะปัจจุบัน:' : 'Stage:'}</span>
+                      <span className="font-bold text-emerald-400">
+                        ขั้น {mapStatusToStage(adminLineModalBooking.status)}: {getStageDetails(mapStatusToStage(adminLineModalBooking.status), isTh).titleTh}
+                      </span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t border-slate-900">
+                      <span className="text-slate-400">{isTh ? 'สถานะ LINE:' : 'LINE Status:'}</span>
+                      <span className={`font-bold ${adminLineModalBooking.lineUserId ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {adminLineModalBooking.lineUserId ? `🟢 ผูกแล้ว (${adminLineModalBooking.lineUserId.slice(0, 8)}...)` : '⚪ ยังไม่ได้ผูก'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+                      {isTh ? 'ตัวเลือกการเชื่อมต่อ LINE:' : 'Connection Options:'}
+                    </p>
+
+                    {/* 1. Fast Test Bind */}
+                    <button
+                      type="button"
+                      onClick={() => handleSaveLineBinding(adminLineModalBooking.id, lastActiveLineUser || 'Uf56b174c54c8be354754f7dddc9d08dc')}
+                      className="w-full py-2 px-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition flex items-center justify-between cursor-pointer"
+                    >
+                      <span>{isTh ? '⚡ ผูกกับ LINE เครื่องทดสอบทันที (1-Click)' : 'Bind to active tester LINE'}</span>
+                      <span className="text-[10px] text-emerald-400 font-mono">
+                        {lastActiveLineUser ? `${lastActiveLineUser.slice(0, 6)}...` : 'Uf56b1...'}
+                      </span>
+                    </button>
+
+                    {/* 2. Manual Input */}
+                    <div className="space-y-1 pt-1">
+                      <label className="text-[11px] text-slate-400">
+                        {isTh ? 'หรือกรอก LINE User ID (ขึ้นต้นด้วย U...):' : 'Or enter custom LINE User ID:'}
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customLineUserIdInput}
+                          onChange={(e) => setCustomLineUserIdInput(e.target.value)}
+                          placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                          className="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-600 font-mono outline-none focus:border-blue-500"
+                        />
+                        <button
+                          type="button"
+                          disabled={!customLineUserIdInput.trim()}
+                          onClick={() => {
+                            if (customLineUserIdInput.trim()) {
+                              handleSaveLineBinding(adminLineModalBooking.id, customLineUserIdInput.trim());
+                              setCustomLineUserIdInput('');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-bold transition cursor-pointer"
+                        >
+                          {isTh ? 'บันทึก' : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 3. Send Test Stage Alert */}
+                    <button
+                      type="button"
+                      onClick={() => handleSendTestLineMessage(adminLineModalBooking)}
+                      className="w-full mt-2 py-2 px-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{isTh ? '🚀 ทดสอบส่งข้อความแจ้งเตือนเข้า LINE ตอนนี้' : 'Send Test Notification to LINE'}</span>
+                    </button>
+
+                    {/* 4. Unlink if linked */}
+                    {adminLineModalBooking.lineUserId && (
+                      <button
+                        type="button"
+                        onClick={() => handleUnlinkLineBinding(adminLineModalBooking.id)}
+                        className="w-full py-1.5 text-center text-[11px] text-red-400 hover:text-red-300 transition cursor-pointer"
+                      >
+                        {isTh ? 'ยกเลิกการผูก LINE สำหรับคิวนี้' : 'Unlink LINE for this booking'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </main>
         )}
 
