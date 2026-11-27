@@ -360,8 +360,15 @@ export function validatePackageRedemption(params: {
       errorEn: 'Please provide customer name to redeem package',
     };
   }
+  if (!params.phone || !params.phone.trim()) {
+    return {
+      isValid: false,
+      errorTh: 'กรุณากรอกเบอร์โทรศัพท์ที่ถูกต้อง (อย่างน้อย 9-10 หลัก)',
+      errorEn: 'Please provide a valid phone number (at least 9-10 digits)',
+    };
+  }
   const phoneDigits = params.phone.replace(/\D/g, '');
-  if (!params.phone || !params.phone.trim() || phoneDigits.length < 9) {
+  if (phoneDigits.length < 9) {
     return {
       isValid: false,
       errorTh: 'กรุณากรอกเบอร์โทรศัพท์ที่ถูกต้อง (อย่างน้อย 9-10 หลัก)',
@@ -888,9 +895,9 @@ export function extractCustomerProfiles(bookings: BookingRecord[]): CustomerProf
         id: `CUST-${cleanPhone.slice(-4) || Math.random().toString(36).substring(2, 6).toUpperCase()}`,
         customerName: b.customerName,
         phone: b.phone,
-        carModel: b.carModel || b.carInfo.split('(')[0].trim() || 'รถยนต์ส่วนบุคคล',
+        carModel: b.carModel || (b.carInfo ? b.carInfo.split('(')[0].trim() : '') || 'รถยนต์ส่วนบุคคล',
         carColor: b.carColor || 'ไม่ระบุสี',
-        licensePlate: b.licensePlate || (b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '') : b.carInfo),
+        licensePlate: b.licensePlate || (b.carInfo && b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '').trim() : (b.carInfo || 'ไม่ระบุทะเบียน')),
         defaultSize: b.size || 'M',
         visitCount: 1,
         totalSpent: b.paidAmount || 0,
@@ -998,15 +1005,15 @@ export function generateGoogleCalendarUrl(booking: {
 }): string {
   const cleanTime = (booking.timeSlot || '08:30').split('-')[0].trim();
   const [startHour = '08', startMin = '30'] = cleanTime.split(':');
-  const dateFormatted = booking.date.replace(/-/g, '');
+  const dateFormatted = (booking.date || '').replace(/-/g, '') || '20261125';
   
   const startIso = `${dateFormatted}T${startHour.padStart(2, '0')}${startMin.padStart(2, '0')}00`;
   const endHour = (parseInt(startHour, 10) + 1).toString().padStart(2, '0');
   const endIso = `${dateFormatted}T${endHour}${startMin.padStart(2, '0')}00`;
 
-  const title = encodeURIComponent(`Autoboutique Phuket: ล้างรถพรีเมียม (${booking.carInfo})`);
+  const title = encodeURIComponent(`Autoboutique Phuket: ล้างรถพรีเมียม (${booking.carInfo || 'คิวล้างรถ'})`);
   const details = encodeURIComponent(
-    `คิวนัดหมายล้างรถพรีเมียมกับ Autoboutique Phuket (C-Cube Automotive)\nบริการ: ${booking.service}\nรถยนต์: ${booking.carInfo}\nเวลา: ${booking.timeSlot} น.\nสถานที่: Autoboutique Phuket สตูดิโอ\nโทร: 066 109 8306`
+    `คิวนัดหมายล้างรถพรีเมียมกับ Autoboutique Phuket (C-Cube Automotive)\nบริการ: ${booking.service || 'ล้างรถ'}\nรถยนต์: ${booking.carInfo || 'ไม่ระบุ'}\nเวลา: ${booking.timeSlot || '08:30'} น.\nสถานที่: Autoboutique Phuket สตูดิโอ\nโทร: 066 109 8306`
   );
   const location = encodeURIComponent('Autoboutique Phuket (C-Cube Automotive), Phuket');
 
@@ -1021,7 +1028,7 @@ export function generateIcsCalendarContent(booking: {
 }): string {
   const cleanTime = (booking.timeSlot || '08:30').split('-')[0].trim();
   const [startHour = '08', startMin = '30'] = cleanTime.split(':');
-  const dateFormatted = booking.date.replace(/-/g, '');
+  const dateFormatted = (booking.date || '').replace(/-/g, '') || '20261125';
   const startIso = `${dateFormatted}T${startHour.padStart(2, '0')}${startMin.padStart(2, '0')}00`;
   const endHour = (parseInt(startHour, 10) + 1).toString().padStart(2, '0');
   const endIso = `${dateFormatted}T${endHour}${startMin.padStart(2, '0')}00`;
@@ -1091,19 +1098,19 @@ export const SERVICE_SHOWCASE_DATA: Record<ServiceType, ServiceShowcase> = {
 
 // UI & Form Formatters
 export function formatPhoneInput(val: string): string {
-  const digits = val.replace(/\D/g, '').slice(0, 10);
+  const digits = (val || '').replace(/\D/g, '').slice(0, 10);
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
 export function isValidThaiPhone(phone: string): boolean {
-  const digits = phone.replace(/\D/g, '');
+  const digits = (phone || '').replace(/\D/g, '');
   return digits.length === 10 && (digits.startsWith('06') || digits.startsWith('08') || digits.startsWith('09'));
 }
 
 export function getEstimatedCompletion(timeSlot: string): string {
-  const [h, m] = timeSlot.split(':').map((n) => parseInt(n, 10));
+  const [h, m] = (timeSlot || '08:30').split(':').map((n) => parseInt(n, 10));
   if (isNaN(h) || isNaN(m)) return `${timeSlot} + 1 ชม.`;
   const endH = (h + 1) % 24;
   return `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
@@ -1115,7 +1122,7 @@ export const PROMPTPAY_NAME = 'Autoboutique Phuket (C-Cube Automotive)';
 export const PROMPTPAY_TYPE = 'national_id' as const;
 
 export function formatPromptPayId(id: string = PROMPTPAY_ID): string {
-  const digits = id.replace(/\D/g, '');
+  const digits = (id || '').replace(/\D/g, '');
   if (digits.length === 13) {
     // Standard Thai National ID format: X-XXXX-XXXXX-XX-X
     return `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}`;
@@ -1123,7 +1130,7 @@ export function formatPromptPayId(id: string = PROMPTPAY_ID): string {
   if (digits.length === 10) {
     return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   }
-  return id;
+  return id || '';
 }
 
 // EMVCo CRC-16 (CCITT-FALSE: poly 0x1021, init 0xFFFF)
@@ -1131,20 +1138,13 @@ export function crc16(data: string): string {
   let crc = 0xffff;
   for (let i = 0; i < data.length; i++) {
     crc ^= data.charCodeAt(i) << 8;
-    for (let j = 0; j < 8; j++) {
-      if ((crc & 0x8000) !== 0) {
-        crc = ((crc << 1) ^ 0x1021) & 0xffff;
-      } else {
-        crc = (crc << 1) & 0xffff;
-      }
-    }
   }
   return crc.toString(16).toUpperCase().padStart(4, '0');
 }
 
 // Official EMVCo Standard Dynamic/Static PromptPay QR Payload Generator
 export function generatePromptPayPayload(phoneOrNationalId: string, amount?: number): string {
-  const digits = phoneOrNationalId.replace(/\D/g, '');
+  const digits = (phoneOrNationalId || '').replace(/\D/g, '');
   let subtag = '';
 
   if (digits.length === 13) {
@@ -1378,14 +1378,14 @@ export function generateYearlyReportSummary(yearStr: string, bookings: BookingRe
 export function formatBookingsToCsv(bookings: BookingRecord[]): string {
   const header = ['วันที่', 'เวลา', 'รหัสการจอง', 'ชื่อลูกค้า', 'เบอร์โทร', 'รุ่นรถยนต์', 'สีรถ', 'ทะเบียนรถ', 'ขนาดรถ (Size)', 'ยอดชำระ (บาท)', 'วิธีชำระ', 'สถานะงาน'];
   const rows = bookings.map((b) => [
-    b.date,
-    `${b.timeSlot} น.`,
-    b.id,
+    b.date || '',
+    `${b.timeSlot || ''} น.`,
+    b.id || '',
     `"${(b.customerName || '').replace(/"/g, '""')}"`,
     `"${(b.phone || '').replace(/"/g, '""')}"`,
-    `"${(b.carModel || b.carInfo.split('(')[0] || '').trim().replace(/"/g, '""')}"`,
+    `"${(b.carModel || (b.carInfo ? b.carInfo.split('(')[0] : '') || '').trim().replace(/"/g, '""')}"`,
     `"${(b.carColor || '').replace(/"/g, '""')}"`,
-    `"${(b.licensePlate || (b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '') : '')).trim().replace(/"/g, '""')}"`,
+    `"${(b.licensePlate || (b.carInfo && b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '') : (b.carInfo || ''))).trim().replace(/"/g, '""')}"`,
     b.size || 'M',
     b.paidAmount || 0,
     b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : (b.paymentMethod || 'PromptPay'),
@@ -1399,14 +1399,14 @@ export function formatBookingsToCsv(bookings: BookingRecord[]): string {
 export function formatBookingsToTsv(bookings: BookingRecord[]): string {
   const header = ['วันที่', 'เวลา', 'รหัสการจอง', 'ชื่อลูกค้า', 'เบอร์โทร', 'รุ่นรถยนต์', 'สีรถ', 'ทะเบียนรถ', 'ขนาดรถ (Size)', 'ยอดชำระ (บาท)', 'วิธีชำระ', 'สถานะงาน'];
   const rows = bookings.map((b) => [
-    b.date,
-    `${b.timeSlot} น.`,
-    b.id,
+    b.date || '',
+    `${b.timeSlot || ''} น.`,
+    b.id || '',
     b.customerName || '',
     b.phone || '',
-    (b.carModel || b.carInfo.split('(')[0] || '').trim(),
+    (b.carModel || (b.carInfo ? b.carInfo.split('(')[0] : '') || '').trim(),
     b.carColor || '',
-    (b.licensePlate || (b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '') : '')).trim(),
+    (b.licensePlate || (b.carInfo && b.carInfo.includes('(') ? b.carInfo.split('(')[1].replace(')', '') : (b.carInfo || ''))).trim(),
     b.size || 'M',
     b.paidAmount || 0,
     b.paymentMethod === 'package' ? 'สิทธิ์แพ็คเกจ (฿0)' : (b.paymentMethod || 'PromptPay'),

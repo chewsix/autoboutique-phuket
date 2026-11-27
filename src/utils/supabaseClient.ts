@@ -34,20 +34,20 @@ export async function fetchRemoteBookings(): Promise<any[] | null> {
 }
 
 export async function upsertRemoteBooking(booking: any): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !booking) return false;
   try {
     const payload = {
       id: booking.id,
-      customer_name: booking.customerName,
-      phone: booking.phone,
-      license_plate: booking.licensePlate,
-      service_name: booking.serviceName,
-      sub_option: booking.subOption || null,
-      booking_date: booking.bookingDate,
-      time_slot: booking.timeSlot,
-      total_price: booking.totalPrice,
-      payment_method: booking.paymentMethod || 'promptpay',
-      slip_url: booking.slipUrl || null,
+      customer_name: booking.customerName || booking.customer_name || 'ลูกค้าทั่วไป',
+      phone: booking.phone || '',
+      license_plate: booking.licensePlate || booking.license_plate || booking.carInfo || 'ไม่ระบุทะเบียน',
+      service_name: booking.serviceName || booking.service_name || booking.service || 'ล้างรถพรีเมียม',
+      sub_option: booking.subOption || booking.sub_option || null,
+      booking_date: booking.bookingDate || booking.booking_date || booking.date || new Date().toISOString().split('T')[0],
+      time_slot: booking.timeSlot || booking.time_slot || '08:30',
+      total_price: booking.totalPrice ?? booking.total_price ?? booking.paidAmount ?? 0,
+      payment_method: booking.paymentMethod || booking.payment_method || 'promptpay',
+      slip_url: booking.slipUrl || booking.slip_url || booking.paymentSlipUrl || null,
       status: booking.status || 'confirmed',
       updated_at: new Date().toISOString()
     };
@@ -93,18 +93,18 @@ export async function fetchRemotePackages(): Promise<any[] | null> {
 }
 
 export async function upsertRemotePackage(pkg: any): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !pkg) return false;
   try {
     const payload = {
       id: pkg.id,
-      customer_phone: pkg.customerPhone,
-      customer_name: pkg.customerName || null,
-      package_name: pkg.packageName,
-      total_quota: pkg.totalQuota,
-      used_quota: pkg.usedQuota,
-      price: pkg.price,
+      customer_phone: pkg.customerPhone || pkg.customer_phone || pkg.phone || '',
+      customer_name: pkg.customerName || pkg.customer_name || null,
+      package_name: pkg.packageName || pkg.package_name || pkg.packageNameTh || 'Super Wash Pass',
+      total_quota: pkg.totalQuota ?? pkg.total_quota ?? 12,
+      used_quota: pkg.usedQuota ?? pkg.used_quota ?? 0,
+      price: pkg.price ?? pkg.pricePaid ?? 0,
       status: pkg.status || 'active',
-      purchased_date: pkg.purchasedDate,
+      purchased_date: pkg.purchasedDate || pkg.purchased_date || pkg.purchaseDate || new Date().toISOString().split('T')[0],
       updated_at: new Date().toISOString()
     };
     const res = await fetch(`${SUPABASE_URL}/rest/v1/packages`, {

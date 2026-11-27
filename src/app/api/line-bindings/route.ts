@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   loadLineBindings,
+  saveLineBindings,
   recordLineInteraction,
   getLastActiveLineUserId,
 } from '@/utils/lineBindings';
@@ -25,20 +26,31 @@ export async function POST(req: NextRequest) {
     if (action === 'clear') {
       // Clear specific binding
       const store = loadLineBindings();
+      let removed = false;
       if (bookingId && store.byBookingId[bookingId.toUpperCase()]) {
         delete store.byBookingId[bookingId.toUpperCase()];
+        removed = true;
       }
-      return NextResponse.json({ success: true, message: 'Binding removed' });
+      if (phone) {
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        if (store.byPhone[cleanPhone]) {
+          delete store.byPhone[cleanPhone];
+          removed = true;
+        }
+      }
+      saveLineBindings(store);
+      return NextResponse.json({ success: true, message: removed ? 'Binding removed' : 'No binding found' });
     }
 
-    if (!lineUserId && !getLastActiveLineUserId()) {
+    const defaultAdminId = process.env.LINE_DEFAULT_USER_ID || process.env.LINE_ADMIN_USER_ID || '';
+    const targetUserId = lineUserId || getLastActiveLineUserId() || defaultAdminId;
+
+    if (!targetUserId) {
       return NextResponse.json(
         { success: false, error: 'No LINE User ID provided and no active LINE user found' },
         { status: 400 }
       );
     }
-
-    const targetUserId = lineUserId || getLastActiveLineUserId() || 'Uf56b174c54c8be354754f7dddc9d08dc';
 
     const recorded = recordLineInteraction(targetUserId, {
       bookingId,

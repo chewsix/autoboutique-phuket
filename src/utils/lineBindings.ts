@@ -4,6 +4,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 export interface LineBindingEntry {
   bookingId?: string;
@@ -29,28 +30,47 @@ const memoryStore: LineBindingsStore = {
   lastActiveTimestamp: undefined,
 };
 
-// Storage file path for persistence across server restarts
-const DATA_DIR = path.join(process.cwd(), '.data');
-const DATA_FILE = path.join(DATA_DIR, 'line-bindings.json');
+// Resilient file path: prefers .data in project root, falls back to os.tmpdir() for serverless/read-only
+let resolvedDataFilePath: string | null = null;
 
-function ensureDataFile(): void {
+function getDataFilePath(): string {
+  if (resolvedDataFilePath) return resolvedDataFilePath;
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    const cwdDataDir = path.join(process.cwd(), '.data');
+    if (!fs.existsSync(cwdDataDir)) {
+      fs.mkdirSync(cwdDataDir, { recursive: true });
     }
-    if (!fs.existsSync(DATA_FILE)) {
-      fs.writeFileSync(DATA_FILE, JSON.stringify(memoryStore, null, 2), 'utf8');
+    const testFile = path.join(cwdDataDir, '.write-check');
+    fs.writeFileSync(testFile, 'ok');
+    fs.unlinkSync(testFile);
+    resolvedDataFilePath = path.join(cwdDataDir, 'line-bindings.json');
+  } catch {
+    resolvedDataFilePath = path.join(os.tmpdir(), 'autoboutique-line-bindings.json');
+  }
+  return resolvedDataFilePath;
+}
+
+function ensureDataFile(): string {
+  const filePath = getDataFilePath();
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify(memoryStore, null, 2), 'utf8');
     }
   } catch (err) {
-    // Fail silently in read-only environments
+    // Memory fallback
   }
+  return filePath;
 }
 
 export function loadLineBindings(): LineBindingsStore {
   try {
-    ensureDataFile();
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, 'utf8');
+    const filePath = ensureDataFile();
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, 'utf8');
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
         memoryStore.byBookingId = { ...memoryStore.byBookingId, ...(parsed.byBookingId || {}) };
@@ -69,8 +89,8 @@ export function loadLineBindings(): LineBindingsStore {
 
 export function saveLineBindings(store: LineBindingsStore): void {
   try {
-    ensureDataFile();
-    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf8');
+    const filePath = ensureDataFile();
+    fs.writeFileSync(filePath, JSON.stringify(store, null, 2), 'utf8');
   } catch (err) {
     // In-memory already updated
   }

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { recordLineInteraction } from '@/utils/lineBindings';
 import { updateRemoteBookingStatus } from '@/utils/supabaseClient';
 
 const CHANNEL_ACCESS_TOKEN =
   process.env.LINE_CHANNEL_ACCESS_TOKEN ||
   process.env.LINE_ACCESS_TOKEN ||
-  'kLzwpa7qG7rOrBrcJ2oTRGkazCPrMJVD6NwkT7ikSb58fZ1TJt6O0xnQ9n4QOLPP7raHEMm9+NEcUoD8if14XQwsxkFj82cqyLASaBROTF2MQACsMLciWBLwTImvNy+VMqT/zbJjGhIwl+nYgFX1xwdB04t89/1O/w1cDnyilFU=';
+  '';
+
+const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET;
 
 export async function GET() {
   return NextResponse.json({
@@ -17,7 +20,21 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+
+    // 1. Webhook Signature Verification (HMAC-SHA256)
+    if (CHANNEL_SECRET) {
+      const signature = req.headers.get('x-line-signature');
+      if (!signature) {
+        return NextResponse.json({ success: false, error: 'Unauthorized: Missing LINE signature' }, { status: 401 });
+      }
+      const expectedSignature = crypto.createHmac('sha256', CHANNEL_SECRET).update(rawBody).digest('base64');
+      if (signature !== expectedSignature) {
+        return NextResponse.json({ success: false, error: 'Unauthorized: Invalid LINE signature' }, { status: 401 });
+      }
+    }
+
+    const body = rawBody ? JSON.parse(rawBody) : {};
     const events = body.events || [];
 
     for (const event of events) {
@@ -26,7 +43,7 @@ export async function POST(req: NextRequest) {
         const userId = event.source?.userId;
         const replyToken = event.replyToken;
 
-        if (!replyToken || !CHANNEL_ACCESS_TOKEN || !userId) continue;
+        if (!replyToken || !userId) continue;
 
         // Parse booking code (e.g. BK-005, #BK-005, #BK-010)
         const bookingMatch = text.match(/#?(BK-\d{3,4})/i);
@@ -68,18 +85,25 @@ export async function POST(req: NextRequest) {
           };
         }
 
-        // Send reply via LINE Messaging API reply endpoint
-        await fetch('https://api.line.me/v2/bot/message/reply', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}`,
-          },
-          body: JSON.stringify({
-            replyToken,
-            messages: [replyMessage],
-          }),
-        });
+        // Send reply via LINE Messaging API reply endpoint (skip dummy verification tokens)
+        const isTestToken = replyToken.startsWith('00000000') || replyToken.startsWith('ffffffff');
+        if (!isTestToken && CHANNEL_ACCESS_TOKEN) {
+          try {
+            await fetch('https://api.line.me/v2/bot/message/reply', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+              },
+              body: JSON.stringify({
+                replyToken,
+                messages: [replyMessage],
+              }),
+            });
+          } catch (replyErr) {
+            console.warn('LINE reply error:', replyErr);
+          }
+        }
       }
     }
 

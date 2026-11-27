@@ -1392,15 +1392,15 @@ export default function AutoboutiqueApp() {
       const cleanNums = q.replace(/[^0-9]/g, '');
       result = result.filter((b) => {
         return (
-          b.carInfo.toLowerCase().includes(q) ||
+          (b.carInfo || '').toLowerCase().includes(q) ||
           (b.carModel && b.carModel.toLowerCase().includes(q)) ||
           (b.carColor && b.carColor.toLowerCase().includes(q)) ||
           (b.licensePlate && b.licensePlate.toLowerCase().includes(q)) ||
           (b.size && b.size.toLowerCase().includes(q)) ||
-          b.customerName.toLowerCase().includes(q) ||
-          b.id.toLowerCase().includes(q) ||
-          b.date.toLowerCase().includes(q) ||
-          (cleanNums.length >= 3 && b.phone.replace(/[^0-9]/g, '').includes(cleanNums))
+          (b.customerName || '').toLowerCase().includes(q) ||
+          (b.id || '').toLowerCase().includes(q) ||
+          (b.date || '').toLowerCase().includes(q) ||
+          (cleanNums.length >= 3 && (b.phone || '').replace(/[^0-9]/g, '').includes(cleanNums))
         );
       });
     }
@@ -1507,10 +1507,10 @@ export default function AutoboutiqueApp() {
       const cleanNums = q.replace(/[^0-9]/g, '');
       const matched = bookings.find(
         (b) =>
-          b.carInfo.toLowerCase().includes(q) ||
-          b.id.toLowerCase().includes(q) ||
-          b.customerName.toLowerCase().includes(q) ||
-          (cleanNums.length >= 3 && b.phone.replace(/[^0-9]/g, '').includes(cleanNums))
+          (b.carInfo || '').toLowerCase().includes(q) ||
+          (b.id || '').toLowerCase().includes(q) ||
+          (b.customerName || '').toLowerCase().includes(q) ||
+          (cleanNums.length >= 3 && (b.phone || '').replace(/[^0-9]/g, '').includes(cleanNums))
       );
       if (matched) return matched;
     }

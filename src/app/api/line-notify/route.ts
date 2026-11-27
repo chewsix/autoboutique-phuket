@@ -94,14 +94,14 @@ export async function POST(req: NextRequest) {
       process.env.LINE_ACCESS_TOKEN ||
       process.env.CHANNEL_ACCESS_TOKEN ||
       process.env.LINE_TOKEN ||
-      'kLzwpa7qG7rOrBrcJ2oTRGkazCPrMJVD6NwkT7ikSb58fZ1TJt6O0xnQ9n4QOLPP7raHEMm9+NEcUoD8if14XQwsxkFj82cqyLASaBROTF2MQACsMLciWBLwTImvNy+VMqT/zbJjGhIwl+nYgFX1xwdB04t89/1O/w1cDnyilFU=';
+      '';
 
     const adminUserId =
       process.env.LINE_ADMIN_USER_ID ||
       process.env.LINE_DEFAULT_USER_ID ||
       process.env.LINE_USER_ID ||
       process.env.LINE_TARGET_USER_ID ||
-      'Uf56b174c54c8be354754f7dddc9d08dc';
+      '';
 
     // Real customer LINE user ID (direct, auto-resolved from webhook cache, or active tester session)
     const directUserId =
